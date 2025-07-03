@@ -1,0 +1,540 @@
+/* DocManager Frontend Styles */
+
+.docmanager-documents-container {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 20px 0;
+}
+
+/* Search Container */
+.docmanager-search-container {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.docmanager-search-form {
+    display: flex;
+    gap: 10px;
+    max-width: 500px;
+}
+
+.docmanager-search-input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.docmanager-search-btn {
+    padding: 12px 24px;
+    background: #0073aa;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.docmanager-search-btn:hover {
+    background: #005a87;
+}
+
+/* Documents Wrapper */
+.docmanager-documents-wrapper {
+    margin-top: 20px;
+}
+
+/* List Layout */
+.docmanager-documents-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.docmanager-document-item {
+    background: white;
+    border: 1px solid #e1e5e9;
+    border-radius: 8px;
+    padding: 20px;
+    transition: box-shadow 0.2s;
+}
+
+.docmanager-document-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.docmanager-doc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.docmanager-doc-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+    color: #2c3e50;
+}
+
+.docmanager-doc-category {
+    background: #e7f3ff;
+    color: #0073aa;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.docmanager-doc-description {
+    color: #666;
+    margin-bottom: 15px;
+    line-height: 1.5;
+}
+
+.docmanager-doc-meta {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 15px;
+    font-size: 14px;
+    color: #666;
+}
+
+.docmanager-doc-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.docmanager-btn {
+    display: inline-block;
+    padding: 8px 16px;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    cursor: pointer;
+    border: none;
+}
+
+.docmanager-btn-download {
+    background: #0073aa;
+    color: white;
+}
+
+.docmanager-btn-download:hover {
+    background: #005a87;
+    color: white;
+}
+
+.docmanager-btn-preview {
+    background: #f0f0f0;
+    color: #333;
+}
+
+.docmanager-btn-preview:hover {
+    background: #e0e0e0;
+}
+
+/* Grid Layout */
+.docmanager-documents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.docmanager-document-card {
+    background: white;
+    border: 1px solid #e1e5e9;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.docmanager-document-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.docmanager-card-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+.docmanager-card-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 10px 0;
+    color: #2c3e50;
+}
+
+.docmanager-card-category {
+    background: #e7f3ff;
+    color: #0073aa;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    margin-bottom: 15px;
+    display: inline-block;
+}
+
+.docmanager-card-meta {
+    margin-bottom: 15px;
+    font-size: 13px;
+    color: #666;
+}
+
+/* Table Layout */
+.docmanager-documents-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.docmanager-documents-table th,
+.docmanager-documents-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #e1e5e9;
+}
+
+.docmanager-documents-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.docmanager-documents-table tr:hover {
+    background: #f8f9fa;
+}
+
+.docmanager-btn-small {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+/* Cards Layout */
+.docmanager-documents-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 25px;
+}
+
+.docmanager-document-card-full {
+    background: white;
+    border: 1px solid #e1e5e9;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.docmanager-document-card-full:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+}
+
+.docmanager-card-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 20px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.docmanager-card-icon-large {
+    font-size: 40px;
+    flex-shrink: 0;
+}
+
+.docmanager-card-info h4 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.docmanager-category-tag {
+    background: #e7f3ff;
+    color: #0073aa;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.docmanager-card-description {
+    padding: 0 20px 15px;
+    color: #666;
+    line-height: 1.5;
+}
+
+.docmanager-card-footer {
+    padding: 15px 20px 20px;
+    background: #fafafa;
+}
+
+.docmanager-card-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    font-size: 13px;
+    color: #666;
+}
+
+.docmanager-btn-primary {
+    background: #0073aa;
+    color: white;
+    padding: 10px 20px;
+    width: 100%;
+    text-align: center;
+    border-radius: 6px;
+}
+
+/* Upload Form Styles */
+.docmanager-upload-container {
+    max-width: 600px;
+    background: white;
+    border: 1px solid #e1e5e9;
+    border-radius: 12px;
+    padding: 30px;
+    margin: 20px auto;
+}
+
+.docmanager-upload-container h3 {
+    margin: 0 0 20px 0;
+    color: #2c3e50;
+    font-size: 24px;
+}
+
+.docmanager-form-row {
+    margin-bottom: 20px;
+}
+
+.docmanager-form-row label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.docmanager-form-row input[type="text"],
+.docmanager-form-row textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.docmanager-file-upload-area {
+    position: relative;
+}
+
+.docmanager-file-upload-area input[type="file"] {
+    opacity: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.docmanager-drop-zone {
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    padding: 40px 20px;
+    text-align: center;
+    background: #fafafa;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.docmanager-drop-zone:hover,
+.docmanager-drop-zone.dragover {
+    border-color: #0073aa;
+    background: #f0f8ff;
+}
+
+.docmanager-drop-icon {
+    font-size: 48px;
+    display: block;
+    margin-bottom: 15px;
+}
+
+.docmanager-drop-zone p {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    color: #666;
+}
+
+.docmanager-drop-zone small {
+    color: #999;
+    font-size: 13px;
+}
+
+.docmanager-upload-progress {
+    margin: 20px 0;
+    background: #f0f0f0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 8px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #0073aa;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.progress-percentage {
+    font-size: 14px;
+    color: #666;
+    text-align: center;
+    display: block;
+}
+
+.docmanager-upload-submit {
+    width: 100%;
+    padding: 15px;
+    background: #0073aa;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.docmanager-upload-submit:hover {
+    background: #005a87;
+}
+
+.docmanager-upload-submit:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.docmanager-upload-messages {
+    margin-top: 20px;
+}
+
+.docmanager-upload-messages .success {
+    background: #d4edda;
+    color: #155724;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #c3e6cb;
+}
+
+.docmanager-upload-messages .error {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #f5c6cb;
+}
+
+/* Login Required */
+.docmanager-login-required {
+    text-align: center;
+    padding: 40px 20px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    color: #666;
+}
+
+/* No Documents */
+.docmanager-no-documents {
+    text-align: center;
+    padding: 60px 20px;
+    color: #666;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .docmanager-documents-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .docmanager-documents-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .docmanager-doc-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .docmanager-doc-meta {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .docmanager-doc-actions {
+        flex-direction: column;
+    }
+    
+    .docmanager-btn {
+        text-align: center;
+    }
+    
+    .docmanager-search-form {
+        flex-direction: column;
+    }
+    
+    .docmanager-upload-container {
+        margin: 20px 10px;
+        padding: 20px;
+    }
+    
+    .docmanager-card-meta {
+        flex-direction: column;
+        gap: 5px;
+    }
+}
+
+@media (max-width: 480px) {
+    .docmanager-documents-table {
+        font-size: 14px;
+    }
+    
+    .docmanager-documents-table th,
+    .docmanager-documents-table td {
+        padding: 8px 10px;
+    }
+    
+    .docmanager-upload-container {
+        padding: 15px;
+    }
+    
+    .docmanager-drop-zone {
+        padding: 30px 15px;
+    }
+    
+    .docmanager-drop-icon {
+        font-size: 36px;
+    }
+}
