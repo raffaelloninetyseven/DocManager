@@ -60,8 +60,12 @@ class DocManager_Ajax {
             if ($insert_result) {
                 $document_id = $this->db->wpdb->insert_id;
                 
-                // Assegna permessi basati sulla visibilità
-                $this->assign_permissions_by_visibility($document_id);
+                // Controlla se c'è una selezione utente dal form
+				if (!empty($_POST['doc_specific_user'])) {
+					$this->assign_permissions_by_visibility($document_id, 'specific_user_from_form');
+				} else {
+					$this->assign_permissions_by_visibility($document_id);
+				}
                 
                 // Log dell'azione
                 if (get_option('docmanager_enable_logs', 'yes') === 'yes') {
@@ -405,6 +409,49 @@ class DocManager_Ajax {
                     );
                 }
                 break;
+			
+			case 'specific_user_from_form':
+				$form_user_selection = sanitize_text_field($_POST['doc_specific_user'] ?? '');
+				
+				if ($form_user_selection === 'logged_users') {
+					$roles = wp_roles()->roles;
+					foreach ($roles as $role_key => $role) {
+						$wpdb->insert(
+							$permissions_table,
+							array(
+								'document_id' => $document_id,
+								'user_role' => $role_key,
+								'permission_type' => 'view',
+								'granted_by' => $current_user_id
+							),
+							array('%d', '%s', '%s', '%d')
+						);
+					}
+				} elseif ($form_user_selection === 'everyone') {
+					$wpdb->insert(
+						$permissions_table,
+						array(
+							'document_id' => $document_id,
+							'user_id' => null,
+							'user_role' => null,
+							'permission_type' => 'view',
+							'granted_by' => $current_user_id
+						),
+						array('%d', null, null, '%s', '%d')
+					);
+				} elseif (is_numeric($form_user_selection)) {
+					$wpdb->insert(
+						$permissions_table,
+						array(
+							'document_id' => $document_id,
+							'user_id' => intval($form_user_selection),
+							'permission_type' => 'view',
+							'granted_by' => $current_user_id
+						),
+						array('%d', '%d', '%s', '%d')
+					);
+				}
+				break;
                 
             case 'uploader_only':
             default:

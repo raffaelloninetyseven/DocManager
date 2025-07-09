@@ -169,6 +169,16 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
                 'condition' => array('document_visibility' => 'specific_role'),
             )
         );
+		
+		$this->add_control(
+			'show_user_selector',
+			array(
+				'label' => __('Show User Selector', 'docmanager'),
+				'type' => \Elementor\Controls_Manager::SWITCHER,
+				'default' => 'no',
+				'description' => __('Allow users to select a specific user when uploading', 'docmanager'),
+			)
+		);
         
         $this->add_control(
             'show_visibility_field',
@@ -640,6 +650,24 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
                         </select>
                     </div>
                     <?php endif; ?>
+					
+					<?php if ($settings['show_user_selector'] === 'yes'): ?>
+					<div class="docmanager-form-row">
+						<label for="doc_specific_user"><?php _e('Assign to User', 'docmanager'); ?></label>
+						<select id="doc_specific_user" name="doc_specific_user">
+							<option value=""><?php _e('Select a user...', 'docmanager'); ?></option>
+							<option value="me"><?php _e('Only Me', 'docmanager'); ?></option>
+							<option value="logged_users"><?php _e('All Logged Users', 'docmanager'); ?></option>
+							<option value="everyone"><?php _e('Everyone', 'docmanager'); ?></option>
+							<?php
+							$users = get_users();
+							foreach ($users as $user) {
+								echo '<option value="' . $user->ID . '">' . esc_html($user->display_name) . ' (' . $user->user_login . ')</option>';
+							}
+							?>
+						</select>
+					</div>
+					<?php endif; ?>
                     
                     <div class="docmanager-form-row">
                         <label for="doc_file"><?php echo esc_html($settings['label_file_field']); ?> *</label>
