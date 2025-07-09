@@ -88,7 +88,7 @@ class DocManager_Ajax {
         $file = $_FILES['doc_file'];
         
         // Verifica dimensione file
-        $max_size = 10 * 1024 * 1024; // 10MB default
+        $max_size = 50 * 1024 * 1024; // 50MB per admin
         if ($file['size'] > $max_size) {
             return array('success' => false, 'message' => 'File too large');
         }
@@ -102,14 +102,15 @@ class DocManager_Ajax {
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'image/jpeg',
             'image/jpg',
-            'image/png'
+            'image/png',
+            'text/plain'
         );
         
         if (!in_array($file['type'], $allowed_types)) {
             return array('success' => false, 'message' => 'File type not allowed');
         }
         
-        // Crea directory se non existe
+        // Crea directory se non esiste
         $upload_dir = wp_upload_dir();
         $docmanager_dir = $upload_dir['basedir'] . '/docmanager/';
         $docmanager_url = $upload_dir['baseurl'] . '/docmanager/';
@@ -213,9 +214,9 @@ class DocManager_Ajax {
         $sql = "SELECT DISTINCT d.* FROM {$documents_table} d
                 LEFT JOIN {$permissions_table} p ON d.id = p.document_id
                 WHERE d.status = 'active' AND (
-                    p.user_id = %d";
+                    p.user_id = %d OR d.uploaded_by = %d";
         
-        $params = array($user_id);
+        $params = array($user_id, $user_id);
         
         if (!empty($user_roles)) {
             $placeholders = implode(',', array_fill(0, count($user_roles), '%s'));

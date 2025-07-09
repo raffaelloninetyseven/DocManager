@@ -120,6 +120,135 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
         
         $this->end_controls_section();
         
+        // Labels Section - Sezione per personalizzare le etichette
+        $this->start_controls_section(
+            'labels_section',
+            array(
+                'label' => __('Custom Labels', 'docmanager'),
+                'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
+            )
+        );
+        
+        $this->add_control(
+            'label_search_placeholder',
+            array(
+                'label' => __('Search Placeholder', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Search documents...', 'docmanager'),
+                'condition' => array('show_search' => 'yes'),
+            )
+        );
+        
+        $this->add_control(
+            'label_search_button',
+            array(
+                'label' => __('Search Button', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Search', 'docmanager'),
+                'condition' => array('show_search' => 'yes'),
+            )
+        );
+        
+        $this->add_control(
+            'label_download_button',
+            array(
+                'label' => __('Download Button', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Download', 'docmanager'),
+            )
+        );
+        
+        $this->add_control(
+            'label_preview_button',
+            array(
+                'label' => __('Preview Button', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Preview', 'docmanager'),
+                'condition' => array('enable_preview' => 'yes'),
+            )
+        );
+        
+        $this->add_control(
+            'label_no_documents',
+            array(
+                'label' => __('No Documents Message', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('No documents found.', 'docmanager'),
+            )
+        );
+        
+        $this->add_control(
+            'label_login_required',
+            array(
+                'label' => __('Login Required Message', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Please login to view documents.', 'docmanager'),
+            )
+        );
+        
+        // Table Headers
+        $this->add_control(
+            'label_table_title',
+            array(
+                'label' => __('Table Header: Title', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Title', 'docmanager'),
+                'condition' => array('layout' => 'table'),
+            )
+        );
+        
+        $this->add_control(
+            'label_table_category',
+            array(
+                'label' => __('Table Header: Category', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Category', 'docmanager'),
+                'condition' => array('layout' => 'table', 'show_category' => 'yes'),
+            )
+        );
+        
+        $this->add_control(
+            'label_table_type',
+            array(
+                'label' => __('Table Header: Type', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Type', 'docmanager'),
+                'condition' => array('layout' => 'table'),
+            )
+        );
+        
+        $this->add_control(
+            'label_table_size',
+            array(
+                'label' => __('Table Header: Size', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Size', 'docmanager'),
+                'condition' => array('layout' => 'table', 'show_file_info' => 'yes'),
+            )
+        );
+        
+        $this->add_control(
+            'label_table_date',
+            array(
+                'label' => __('Table Header: Date', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Date', 'docmanager'),
+                'condition' => array('layout' => 'table', 'show_file_info' => 'yes'),
+            )
+        );
+        
+        $this->add_control(
+            'label_table_actions',
+            array(
+                'label' => __('Table Header: Actions', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Actions', 'docmanager'),
+                'condition' => array('layout' => 'table'),
+            )
+        );
+        
+        $this->end_controls_section();
+        
         // Grid Settings (only for grid layout)
         $this->start_controls_section(
             'grid_section',
@@ -280,81 +409,6 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             )
         );
         
-        $this->add_control(
-            'button_border_radius',
-            array(
-                'label' => __('Border Radius', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::SLIDER,
-                'range' => array(
-                    'px' => array(
-                        'min' => 0,
-                        'max' => 50,
-                    ),
-                ),
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-btn-download' => 'border-radius: {{SIZE}}{{UNIT}};',
-                ),
-            )
-        );
-        
-        $this->add_responsive_control(
-            'button_padding',
-            array(
-                'label' => __('Padding', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::DIMENSIONS,
-                'size_units' => array('px', '%', 'em'),
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-btn-download' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
-                ),
-            )
-        );
-        
-        $this->end_controls_section();
-        
-        // Category Style Section
-        $this->start_controls_section(
-            'category_style_section',
-            array(
-                'label' => __('Category Style', 'docmanager'),
-                'tab' => \Elementor\Controls_Manager::TAB_STYLE,
-                'condition' => array(
-                    'show_category' => 'yes',
-                ),
-            )
-        );
-        
-        $this->add_control(
-            'category_background_color',
-            array(
-                'label' => __('Background Color', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::COLOR,
-                'default' => '#e7f3ff',
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-doc-category, {{WRAPPER}} .docmanager-card-category, {{WRAPPER}} .docmanager-category-tag' => 'background-color: {{VALUE}}',
-                ),
-            )
-        );
-        
-        $this->add_control(
-            'category_text_color',
-            array(
-                'label' => __('Text Color', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::COLOR,
-                'default' => '#0073aa',
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-doc-category, {{WRAPPER}} .docmanager-card-category, {{WRAPPER}} .docmanager-category-tag' => 'color: {{VALUE}}',
-                ),
-            )
-        );
-        
-        $this->add_group_control(
-            \Elementor\Group_Control_Typography::get_type(),
-            array(
-                'name' => 'category_typography',
-                'selector' => '{{WRAPPER}} .docmanager-doc-category, {{WRAPPER}} .docmanager-card-category, {{WRAPPER}} .docmanager-category-tag',
-            )
-        );
-        
         $this->end_controls_section();
     }
     
@@ -363,7 +417,7 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
         
         if (!is_user_logged_in()) {
             echo '<div class="docmanager-login-required">';
-            echo '<p>' . __('Please login to view documents.', 'docmanager') . '</p>';
+            echo '<p>' . esc_html($settings['label_login_required']) . '</p>';
             echo '</div>';
             return;
         }
@@ -396,13 +450,13 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
         
         // Search box
         if ($settings['show_search'] === 'yes') {
-            $this->render_search_box();
+            $this->render_search_box($settings);
         }
         
         // Contenuto documenti
         if (empty($documents)) {
             echo '<div class="docmanager-no-documents">';
-            echo '<p>' . __('No documents found.', 'docmanager') . '</p>';
+            echo '<p>' . esc_html($settings['label_no_documents']) . '</p>';
             echo '</div>';
         } else {
             $this->render_documents($documents, $settings);
@@ -411,16 +465,16 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
         echo '</div>';
     }
     
-    private function render_search_box() {
+    private function render_search_box($settings) {
         ?>
         <div class="docmanager-search-container">
             <form class="docmanager-search-form">
                 <input type="text" 
                        class="docmanager-search-input" 
-                       placeholder="<?php _e('Search documents...', 'docmanager'); ?>" 
+                       placeholder="<?php echo esc_attr($settings['label_search_placeholder']); ?>" 
                        name="search_term">
                 <button type="submit" class="docmanager-search-btn">
-                    <?php _e('Search', 'docmanager'); ?>
+                    <?php echo esc_html($settings['label_search_button']); ?>
                 </button>
             </form>
         </div>
@@ -473,13 +527,13 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
                     <a href="<?php echo esc_url($this->get_download_url($doc->id)); ?>" 
                        class="docmanager-btn docmanager-btn-download" 
                        target="_blank">
-                        <?php _e('Download', 'docmanager'); ?>
+                        <?php echo esc_html($settings['label_download_button']); ?>
                     </a>
                     <?php if ($settings['enable_preview'] === 'yes' && $this->can_preview($doc->file_type)): ?>
                         <a href="<?php echo esc_url($doc->file_path); ?>" 
                            class="docmanager-btn docmanager-btn-preview" 
                            target="_blank">
-                            <?php _e('Preview', 'docmanager'); ?>
+                            <?php echo esc_html($settings['label_preview_button']); ?>
                         </a>
                     <?php endif; ?>
                 </div>
@@ -487,6 +541,51 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             <?php
         }
         echo '</div>';
+    }
+    
+    private function render_table_layout($documents, $settings) {
+        ?>
+        <div class="docmanager-table-wrapper">
+            <table class="docmanager-documents-table">
+                <thead>
+                    <tr>
+                        <th><?php echo esc_html($settings['label_table_title']); ?></th>
+                        <?php if ($settings['show_category'] === 'yes'): ?>
+                            <th><?php echo esc_html($settings['label_table_category']); ?></th>
+                        <?php endif; ?>
+                        <th><?php echo esc_html($settings['label_table_type']); ?></th>
+                        <?php if ($settings['show_file_info'] === 'yes'): ?>
+                            <th><?php echo esc_html($settings['label_table_size']); ?></th>
+                            <th><?php echo esc_html($settings['label_table_date']); ?></th>
+                        <?php endif; ?>
+                        <th><?php echo esc_html($settings['label_table_actions']); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($documents as $doc): ?>
+                    <tr data-doc-id="<?php echo esc_attr($doc->id); ?>">
+                        <td class="docmanager-table-title"><?php echo esc_html($doc->title); ?></td>
+                        <?php if ($settings['show_category'] === 'yes'): ?>
+                            <td><?php echo esc_html($doc->category); ?></td>
+                        <?php endif; ?>
+                        <td><?php echo $this->get_file_type_label($doc->file_type); ?></td>
+                        <?php if ($settings['show_file_info'] === 'yes'): ?>
+                            <td><?php echo size_format($doc->file_size); ?></td>
+                            <td><?php echo date_i18n(get_option('date_format'), strtotime($doc->upload_date)); ?></td>
+                        <?php endif; ?>
+                        <td>
+                            <a href="<?php echo esc_url($this->get_download_url($doc->id)); ?>" 
+                               class="docmanager-btn docmanager-btn-small" 
+                               target="_blank">
+                                <?php echo esc_html($settings['label_download_button']); ?>
+                            </a>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php
     }
     
     private function render_grid_layout($documents, $settings) {
@@ -516,58 +615,13 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
                     <a href="<?php echo esc_url($this->get_download_url($doc->id)); ?>" 
                        class="docmanager-btn docmanager-btn-download" 
                        target="_blank">
-                        <?php _e('Download', 'docmanager'); ?>
+                        <?php echo esc_html($settings['label_download_button']); ?>
                     </a>
                 </div>
             </div>
             <?php
         }
         echo '</div>';
-    }
-    
-    private function render_table_layout($documents, $settings) {
-        ?>
-        <div class="docmanager-table-wrapper">
-            <table class="docmanager-documents-table">
-                <thead>
-                    <tr>
-                        <th><?php _e('Title', 'docmanager'); ?></th>
-                        <?php if ($settings['show_category'] === 'yes'): ?>
-                            <th><?php _e('Category', 'docmanager'); ?></th>
-                        <?php endif; ?>
-                        <th><?php _e('Type', 'docmanager'); ?></th>
-                        <?php if ($settings['show_file_info'] === 'yes'): ?>
-                            <th><?php _e('Size', 'docmanager'); ?></th>
-                            <th><?php _e('Date', 'docmanager'); ?></th>
-                        <?php endif; ?>
-                        <th><?php _e('Actions', 'docmanager'); ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($documents as $doc): ?>
-                    <tr data-doc-id="<?php echo esc_attr($doc->id); ?>">
-                        <td class="docmanager-table-title"><?php echo esc_html($doc->title); ?></td>
-                        <?php if ($settings['show_category'] === 'yes'): ?>
-                            <td><?php echo esc_html($doc->category); ?></td>
-                        <?php endif; ?>
-                        <td><?php echo $this->get_file_type_label($doc->file_type); ?></td>
-                        <?php if ($settings['show_file_info'] === 'yes'): ?>
-                            <td><?php echo size_format($doc->file_size); ?></td>
-                            <td><?php echo date_i18n(get_option('date_format'), strtotime($doc->upload_date)); ?></td>
-                        <?php endif; ?>
-                        <td>
-                            <a href="<?php echo esc_url($this->get_download_url($doc->id)); ?>" 
-                               class="docmanager-btn docmanager-btn-small" 
-                               target="_blank">
-                                <?php _e('Download', 'docmanager'); ?>
-                            </a>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-        <?php
     }
     
     private function render_cards_layout($documents, $settings) {
@@ -604,7 +658,7 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
                         <a href="<?php echo esc_url($this->get_download_url($doc->id)); ?>" 
                            class="docmanager-btn docmanager-btn-primary" 
                            target="_blank">
-                            <?php _e('Download', 'docmanager'); ?>
+                            <?php echo esc_html($settings['label_download_button']); ?>
                         </a>
                     </div>
                 </div>

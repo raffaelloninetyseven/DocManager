@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) {
 
 class DocManager_DB {
     
-    private $wpdb;
+    public $wpdb; // Cambiato da private a public
     private $documents_table;
     private $permissions_table;
     private $logs_table;
@@ -82,7 +82,7 @@ class DocManager_DB {
         return $this->wpdb->insert(
             $this->documents_table,
             $data,
-            array('%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%d', '%s', '%s')
+            array('%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%d', '%s')
         );
     }
     
@@ -90,9 +90,9 @@ class DocManager_DB {
         $sql = "SELECT DISTINCT d.* FROM {$this->documents_table} d
                 LEFT JOIN {$this->permissions_table} p ON d.id = p.document_id
                 WHERE d.status = 'active' AND (
-                    p.user_id = %d";
+                    p.user_id = %d OR d.uploaded_by = %d";
         
-        $params = array($user_id);
+        $params = array($user_id, $user_id);
         
         if (!empty($user_roles)) {
             $placeholders = implode(',', array_fill(0, count($user_roles), '%s'));
@@ -105,6 +105,13 @@ class DocManager_DB {
         return $this->wpdb->get_results($this->wpdb->prepare($sql, $params));
     }
     
+    public function get_document_by_id($document_id) {
+        return $this->wpdb->get_row($this->wpdb->prepare(
+            "SELECT * FROM {$this->documents_table} WHERE id = %d AND status = 'active'",
+            $document_id
+        ));
+    }
+    
     public function log_action($user_id, $document_id, $action) {
         return $this->wpdb->insert(
             $this->logs_table,
@@ -112,8 +119,8 @@ class DocManager_DB {
                 'user_id' => $user_id,
                 'document_id' => $document_id,
                 'action' => $action,
-                'ip_address' => $_SERVER['REMOTE_ADDR'],
-                'user_agent' => $_SERVER['HTTP_USER_AGENT']
+                'ip_address' => $_SERVER['REMOTE_ADDR'] ?? '',
+                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? ''
             ),
             array('%d', '%d', '%s', '%s', '%s')
         );
@@ -131,7 +138,8 @@ class DocManager_DB {
         
         if ($user_id) {
             $sql .= " LEFT JOIN {$this->permissions_table} p ON d.id = p.document_id";
-            $where[] = "p.user_id = %d";
+            $where[] = "(p.user_id = %d OR d.uploaded_by = %d)";
+            $params[] = $user_id;
             $params[] = $user_id;
         }
         
@@ -142,5 +150,11 @@ class DocManager_DB {
         }
         
         return $this->wpdb->get_results($sql);
+    }
+    
+    public function get_all_documents() {
+        return $this->wpdb->get_results(
+            "SELECT * FROM {$this->documents_table} WHERE status = 'active' ORDER BY upload_date DESC"
+        );
     }
 }

@@ -16,20 +16,20 @@ class DocManager_Frontend {
     }
     
     public function enqueue_scripts() {
-        if (is_user_logged_in()) {
-            wp_enqueue_script('docmanager-frontend', DOCMANAGER_PLUGIN_URL . 'assets/js/frontend.js', array('jquery'), DOCMANAGER_VERSION, true);
-            wp_enqueue_style('docmanager-frontend', DOCMANAGER_PLUGIN_URL . 'assets/css/frontend.css', array(), DOCMANAGER_VERSION);
-            
-            wp_localize_script('docmanager-frontend', 'docmanager_frontend', array(
-                'ajax_url' => admin_url('admin-ajax.php'),
-                'nonce' => wp_create_nonce('docmanager_frontend_nonce'),
-                'messages' => array(
-                    'confirm_delete' => __('Are you sure you want to delete this document?', 'docmanager'),
-                    'upload_success' => __('Document uploaded successfully!', 'docmanager'),
-                    'upload_error' => __('Error uploading document. Please try again.', 'docmanager')
-                )
-            ));
-        }
+        // Enqueue sempre i file CSS/JS se il plugin è attivo
+        wp_enqueue_script('docmanager-frontend', DOCMANAGER_PLUGIN_URL . 'assets/js/frontend.js', array('jquery'), DOCMANAGER_VERSION, true);
+        wp_enqueue_style('docmanager-frontend', DOCMANAGER_PLUGIN_URL . 'assets/css/frontend.css', array(), DOCMANAGER_VERSION);
+        
+        // Localize script per AJAX
+        wp_localize_script('docmanager-frontend', 'docmanager_frontend', array(
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('docmanager_frontend_nonce'),
+            'messages' => array(
+                'confirm_delete' => __('Are you sure you want to delete this document?', 'docmanager'),
+                'upload_success' => __('Document uploaded successfully!', 'docmanager'),
+                'upload_error' => __('Error uploading document. Please try again.', 'docmanager')
+            )
+        ));
     }
     
     public function documents_shortcode($atts) {
@@ -424,13 +424,7 @@ class DocManager_Frontend {
         }
         
         // Ottieni informazioni documento
-        global $wpdb;
-        $documents_table = $wpdb->prefix . 'docmanager_documents';
-        
-        $document = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$documents_table} WHERE id = %d AND status = 'active'",
-            $document_id
-        ));
+        $document = $this->db->get_document_by_id($document_id);
         
         if (!$document) {
             wp_die(__('Document not found', 'docmanager'));
