@@ -89,9 +89,9 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             'apply_language_preset',
             array(
                 'label' => __('Apply Language Preset', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::BUTTON,
-                'text' => __('Apply', 'docmanager'),
-                'event' => 'docmanager:apply_language_preset',
+                'type' => \Elementor\Controls_Manager::RAW_HTML,
+                'raw' => '<button type="button" onclick="docmanagerApplyLanguagePreset(jQuery(this).closest(\'.elementor-panel\').find(\'[data-setting=language_preset]\').val(), \'docmanager_upload\', elementor.getPanelView().getCurrentPageView())" style="background: #0073aa; color: white; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 13px; min-width: 100px;">Apply Preset</button>',
+                'content_classes' => 'elementor-panel-alert elementor-panel-alert-info',
                 'condition' => array(
                     'language_preset!' => 'custom'
                 ),
@@ -711,10 +711,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
         </div>
         
         <?php
-        // JavaScript for language preset functionality
-        if (\Elementor\Plugin::$instance->editor->is_edit_mode()) {
-            $this->render_language_preset_script();
-        }
+        // Il JavaScript per i preset lingua è ora gestito globalmente
     }
     
     private function render_language_preset_script() {

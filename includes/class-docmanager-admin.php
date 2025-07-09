@@ -997,26 +997,29 @@ class DocManager_Admin {
         $stats['new_this_month'] = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM {$documents_table} WHERE status = 'active' AND upload_date >= %s",
             date('Y-m-01')
-        ));
+        )) ?: 0;
         
         $stats['downloads_this_month'] = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM {$logs_table} WHERE action = 'download' AND timestamp >= %s",
             date('Y-m-01')
-        ));
+        )) ?: 0;
         
         $stats['active_users'] = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(DISTINCT user_id) FROM {$logs_table} WHERE timestamp >= %s",
             date('Y-m-d', strtotime('-30 days'))
-        ));
+        )) ?: 0;
         
         $stats['max_storage'] = 1024 * 1024 * 1024; // 1GB
         $stats['total_storage'] = $stats['storage_used'];
         
-        // Categorie
-        $stats['categories'] = $wpdb->get_results(
-            "SELECT category, COUNT(*) as count FROM {$documents_table} WHERE status = 'active' GROUP BY category ORDER BY count DESC",
-            OBJECT_K
+        // Categorie - Fix per l'errore Object to string
+        $categories_raw = $wpdb->get_results(
+            "SELECT category, COUNT(*) as count FROM {$documents_table} WHERE status = 'active' GROUP BY category ORDER BY count DESC"
         );
+        $stats['categories'] = array();
+        foreach ($categories_raw as $cat) {
+            $stats['categories'][$cat->category ?: 'Senza categoria'] = $cat->count;
+        }
         
         // Top downloads
         $stats['top_downloads'] = $wpdb->get_results(
@@ -1027,17 +1030,25 @@ class DocManager_Admin {
              GROUP BY d.id 
              ORDER BY download_count DESC 
              LIMIT 10"
-        );
+        ) ?: array();
         
         // Attività recente
         $stats['recent_activity'] = $wpdb->get_results(
-            "SELECT l.*, d.title as document_title, u.display_name as user_name
+            "SELECT l.*, d.title as document_title, u.display_name as user_name,
+                    CASE 
+                        WHEN l.action = 'upload' THEN CONCAT(u.display_name, ' ha caricato ', d.title)
+                        WHEN l.action = 'download' THEN CONCAT(u.display_name, ' ha scaricato ', d.title)
+                        WHEN l.action = 'delete' THEN CONCAT(u.display_name, ' ha eliminato ', d.title)
+                        WHEN l.action = 'view' THEN CONCAT(u.display_name, ' ha visualizzato ', d.title)
+                        ELSE CONCAT(u.display_name, ' - ', l.action, ' - ', d.title)
+                    END as description
              FROM {$logs_table} l
              LEFT JOIN {$documents_table} d ON l.document_id = d.id
              LEFT JOIN {$wpdb->users} u ON l.user_id = u.ID
+             WHERE l.timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)
              ORDER BY l.timestamp DESC
              LIMIT 20"
-        );
+        ) ?: array();
         
         return $stats;
     }

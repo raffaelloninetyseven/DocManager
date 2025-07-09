@@ -21,11 +21,79 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
         return array('docmanager');
     }
     
-    public function get_keywords() {
-        return array('documents', 'files', 'download', 'docmanager');
+    private function get_language_presets() {
+        return array(
+            'it' => array(
+                'label_search_placeholder' => 'Cerca documenti...',
+                'label_search_button' => 'Cerca',
+                'label_download_button' => 'Scarica',
+                'label_preview_button' => 'Anteprima',
+                'label_no_documents' => 'Nessun documento trovato.',
+                'label_login_required' => 'Effettua il login per visualizzare i documenti.',
+                'label_table_title' => 'Titolo',
+                'label_table_category' => 'Categoria',
+                'label_table_type' => 'Tipo',
+                'label_table_size' => 'Dimensione',
+                'label_table_date' => 'Data',
+                'label_table_actions' => 'Azioni'
+            ),
+            'en' => array(
+                'label_search_placeholder' => 'Search documents...',
+                'label_search_button' => 'Search',
+                'label_download_button' => 'Download',
+                'label_preview_button' => 'Preview',
+                'label_no_documents' => 'No documents found.',
+                'label_login_required' => 'Please login to view documents.',
+                'label_table_title' => 'Title',
+                'label_table_category' => 'Category',
+                'label_table_type' => 'Type',
+                'label_table_size' => 'Size',
+                'label_table_date' => 'Date',
+                'label_table_actions' => 'Actions'
+            )
+        );
     }
     
     protected function register_controls() {
+        // Language Preset Section
+        $this->start_controls_section(
+            'language_preset_section',
+            array(
+                'label' => __('Language Preset', 'docmanager'),
+                'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
+            )
+        );
+        
+        $this->add_control(
+            'language_preset',
+            array(
+                'label' => __('Select Language', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::SELECT,
+                'default' => 'it',
+                'options' => array(
+                    'it' => __('Italian', 'docmanager'),
+                    'en' => __('English', 'docmanager'),
+                    'custom' => __('Custom Labels', 'docmanager'),
+                ),
+                'description' => __('Choose a language preset or use custom labels', 'docmanager'),
+            )
+        );
+        
+        $this->add_control(
+            'apply_language_preset',
+            array(
+                'label' => __('Apply Language Preset', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::RAW_HTML,
+                'raw' => '<button type="button" onclick="docmanagerApplyLanguagePreset(jQuery(this).closest(\'.elementor-panel\').find(\'[data-setting=language_preset]\').val(), \'docmanager_documents\', elementor.getPanelView().getCurrentPageView())" style="background: #0073aa; color: white; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 13px; min-width: 100px;">Apply Preset</button>',
+                'content_classes' => 'elementor-panel-alert elementor-panel-alert-info',
+                'condition' => array(
+                    'language_preset!' => 'custom'
+                ),
+            )
+        );
+        
+        $this->end_controls_section();
+        
         // Content Section
         $this->start_controls_section(
             'content_section',
@@ -67,7 +135,6 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
                 'label' => __('Filter by Category', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
                 'placeholder' => __('Enter category name', 'docmanager'),
-                'description' => __('Leave empty to show all categories', 'docmanager'),
             )
         );
         
@@ -104,7 +171,6 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
                 'label' => __('Show File Info', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::SWITCHER,
                 'default' => 'yes',
-                'description' => __('Show file size and upload date', 'docmanager'),
             )
         );
         
@@ -114,13 +180,12 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
                 'label' => __('Enable Preview', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::SWITCHER,
                 'default' => 'yes',
-                'description' => __('Show preview button for supported files', 'docmanager'),
             )
         );
         
         $this->end_controls_section();
         
-        // Labels Section - Sezione per personalizzare le etichette
+        // Labels Section
         $this->start_controls_section(
             'labels_section',
             array(
@@ -134,7 +199,7 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Search Placeholder', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Search documents...', 'docmanager'),
+                'default' => 'Cerca documenti...',
                 'condition' => array('show_search' => 'yes'),
             )
         );
@@ -144,7 +209,7 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Search Button', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Search', 'docmanager'),
+                'default' => 'Cerca',
                 'condition' => array('show_search' => 'yes'),
             )
         );
@@ -154,7 +219,7 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Download Button', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Download', 'docmanager'),
+                'default' => 'Scarica',
             )
         );
         
@@ -163,7 +228,7 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Preview Button', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Preview', 'docmanager'),
+                'default' => 'Anteprima',
                 'condition' => array('enable_preview' => 'yes'),
             )
         );
@@ -173,7 +238,7 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('No Documents Message', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('No documents found.', 'docmanager'),
+                'default' => 'Nessun documento trovato.',
             )
         );
         
@@ -182,17 +247,27 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Login Required Message', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Please login to view documents.', 'docmanager'),
+                'default' => 'Effettua il login per visualizzare i documenti.',
             )
         );
         
-        // Table Headers
+        // Table Headers (only visible when table layout is selected)
+        $this->add_control(
+            'table_headers_divider',
+            array(
+                'label' => __('Table Headers', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::HEADING,
+                'separator' => 'before',
+                'condition' => array('layout' => 'table'),
+            )
+        );
+        
         $this->add_control(
             'label_table_title',
             array(
                 'label' => __('Table Header: Title', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Title', 'docmanager'),
+                'default' => 'Titolo',
                 'condition' => array('layout' => 'table'),
             )
         );
@@ -202,7 +277,7 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Table Header: Category', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Category', 'docmanager'),
+                'default' => 'Categoria',
                 'condition' => array('layout' => 'table', 'show_category' => 'yes'),
             )
         );
@@ -212,7 +287,7 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Table Header: Type', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Type', 'docmanager'),
+                'default' => 'Tipo',
                 'condition' => array('layout' => 'table'),
             )
         );
@@ -222,7 +297,7 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Table Header: Size', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Size', 'docmanager'),
+                'default' => 'Dimensione',
                 'condition' => array('layout' => 'table', 'show_file_info' => 'yes'),
             )
         );
@@ -232,7 +307,7 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Table Header: Date', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Date', 'docmanager'),
+                'default' => 'Data',
                 'condition' => array('layout' => 'table', 'show_file_info' => 'yes'),
             )
         );
@@ -242,22 +317,20 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Table Header: Actions', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Actions', 'docmanager'),
+                'default' => 'Azioni',
                 'condition' => array('layout' => 'table'),
             )
         );
         
         $this->end_controls_section();
         
-        // Grid Settings (only for grid layout)
+        // Grid Settings
         $this->start_controls_section(
             'grid_section',
             array(
                 'label' => __('Grid Settings', 'docmanager'),
                 'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
-                'condition' => array(
-                    'layout' => array('grid', 'cards'),
-                ),
+                'condition' => array('layout' => array('grid', 'cards')),
             )
         );
         
@@ -289,15 +362,8 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Column Gap', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::SLIDER,
-                'default' => array(
-                    'size' => 20,
-                ),
-                'range' => array(
-                    'px' => array(
-                        'min' => 0,
-                        'max' => 50,
-                    ),
-                ),
+                'default' => array('size' => 20),
+                'range' => array('px' => array('min' => 0, 'max' => 50)),
                 'selectors' => array(
                     '{{WRAPPER}} .docmanager-documents-grid' => 'gap: {{SIZE}}{{UNIT}};',
                     '{{WRAPPER}} .docmanager-documents-cards' => 'gap: {{SIZE}}{{UNIT}};',
@@ -307,7 +373,12 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
         
         $this->end_controls_section();
         
-        // Style Section
+        // Style sections...
+        $this->register_style_controls();
+    }
+    
+    private function register_style_controls() {
+        // General Style
         $this->start_controls_section(
             'style_section',
             array(
@@ -322,7 +393,7 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
                 'label' => __('Title Color', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::COLOR,
                 'selectors' => array(
-                    '{{WRAPPER}} .docmanager-doc-title, {{WRAPPER}} .docmanager-card-title, {{WRAPPER}} .docmanager-table-title' => 'color: {{VALUE}}',
+                    '{{WRAPPER}} .docmanager-doc-title, {{WRAPPER}} .docmanager-card-title' => 'color: {{VALUE}}',
                 ),
             )
         );
@@ -331,7 +402,7 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             \Elementor\Group_Control_Typography::get_type(),
             array(
                 'name' => 'title_typography',
-                'selector' => '{{WRAPPER}} .docmanager-doc-title, {{WRAPPER}} .docmanager-card-title, {{WRAPPER}} .docmanager-table-title',
+                'selector' => '{{WRAPPER}} .docmanager-doc-title, {{WRAPPER}} .docmanager-card-title',
             )
         );
         
@@ -341,22 +412,14 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
                 'label' => __('Description Color', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::COLOR,
                 'selectors' => array(
-                    '{{WRAPPER}} .docmanager-doc-description, {{WRAPPER}} .docmanager-card-description' => 'color: {{VALUE}}',
+                    '{{WRAPPER}} .docmanager-doc-description' => 'color: {{VALUE}}',
                 ),
-            )
-        );
-        
-        $this->add_group_control(
-            \Elementor\Group_Control_Typography::get_type(),
-            array(
-                'name' => 'description_typography',
-                'selector' => '{{WRAPPER}} .docmanager-doc-description, {{WRAPPER}} .docmanager-card-description',
             )
         );
         
         $this->end_controls_section();
         
-        // Button Style Section
+        // Button Style
         $this->start_controls_section(
             'button_style_section',
             array(
@@ -401,19 +464,30 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             )
         );
         
-        $this->add_group_control(
-            \Elementor\Group_Control_Typography::get_type(),
-            array(
-                'name' => 'button_typography',
-                'selector' => '{{WRAPPER}} .docmanager-btn-download',
-            )
-        );
-        
         $this->end_controls_section();
+    }
+    
+    public function on_export($element) {
+        // Reset language preset when exporting
+        unset($element['settings']['language_preset']);
+        return $element;
     }
     
     protected function render() {
         $settings = $this->get_settings_for_display();
+        
+        // Apply language preset if selected
+        if (!empty($settings['language_preset']) && $settings['language_preset'] !== 'custom') {
+            $presets = $this->get_language_presets();
+            if (isset($presets[$settings['language_preset']])) {
+                $preset = $presets[$settings['language_preset']];
+                foreach ($preset as $key => $value) {
+                    if (empty($settings[$key])) {
+                        $settings[$key] = $value;
+                    }
+                }
+            }
+        }
         
         if (!is_user_logged_in()) {
             echo '<div class="docmanager-login-required">';
@@ -422,7 +496,6 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             return;
         }
         
-        // Enqueue necessari scripts e styles
         wp_enqueue_script('docmanager-frontend');
         wp_enqueue_style('docmanager-frontend');
         
@@ -430,30 +503,24 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
         $user_id = get_current_user_id();
         $user_roles = wp_get_current_user()->roles;
         
-        // Ottieni documenti per l'utente corrente
         $documents = $db->get_user_documents($user_id, $user_roles);
         
-        // Applica filtro categoria se specificato
         if (!empty($settings['category_filter'])) {
             $documents = array_filter($documents, function($doc) use ($settings) {
                 return $doc->category === $settings['category_filter'];
             });
         }
         
-        // Limita il numero di documenti
         if (!empty($settings['posts_per_page']) && $settings['posts_per_page'] > 0) {
             $documents = array_slice($documents, 0, intval($settings['posts_per_page']));
         }
         
-        // Wrapper principale
         echo '<div class="docmanager-documents-wrapper elementor-widget-docmanager" data-layout="' . esc_attr($settings['layout']) . '">';
         
-        // Search box
         if ($settings['show_search'] === 'yes') {
             $this->render_search_box($settings);
         }
         
-        // Contenuto documenti
         if (empty($documents)) {
             echo '<div class="docmanager-no-documents">';
             echo '<p>' . esc_html($settings['label_no_documents']) . '</p>';
@@ -463,6 +530,9 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
         }
         
         echo '</div>';
+        
+        // Il JavaScript per i preset lingua è ora gestito globalmente
+        // Non serve più il render_language_preset_script()
     }
     
     private function render_search_box($settings) {
@@ -666,6 +736,85 @@ class DocManager_Documents_Widget extends \Elementor\Widget_Base {
             <?php
         }
         echo '</div>';
+    }
+    
+    private function render_language_preset_script() {
+        ?>
+        <script>
+        jQuery(document).ready(function($) {
+            // Funzione per applicare preset lingua
+            function applyLanguagePreset(language, widget) {
+                var presets = {
+                    'it': {
+                        'label_search_placeholder': 'Cerca documenti...',
+                        'label_search_button': 'Cerca',
+                        'label_download_button': 'Scarica',
+                        'label_preview_button': 'Anteprima',
+                        'label_no_documents': 'Nessun documento trovato.',
+                        'label_login_required': 'Effettua il login per visualizzare i documenti.',
+                        'label_table_title': 'Titolo',
+                        'label_table_category': 'Categoria',
+                        'label_table_type': 'Tipo',
+                        'label_table_size': 'Dimensione',
+                        'label_table_date': 'Data',
+                        'label_table_actions': 'Azioni'
+                    },
+                    'en': {
+                        'label_search_placeholder': 'Search documents...',
+                        'label_search_button': 'Search',
+                        'label_download_button': 'Download',
+                        'label_preview_button': 'Preview',
+                        'label_no_documents': 'No documents found.',
+                        'label_login_required': 'Please login to view documents.',
+                        'label_table_title': 'Title',
+                        'label_table_category': 'Category',
+                        'label_table_type': 'Type',
+                        'label_table_size': 'Size',
+                        'label_table_date': 'Date',
+                        'label_table_actions': 'Actions'
+                    }
+                };
+                
+                if (presets[language]) {
+                    var preset = presets[language];
+                    var settings = widget.model.get('settings');
+                    
+                    // Applica ogni valore del preset
+                    Object.keys(preset).forEach(function(key) {
+                        settings.set(key, preset[key]);
+                    });
+                    
+                    // Forza il refresh del pannello
+                    widget.renderControls();
+                }
+            }
+            
+            // Intercetta quando si apre l'editor del widget
+            elementor.hooks.addAction('panel/open_editor/widget/docmanager_documents', function(panel, model, view) {
+                
+                // Quando cambia il preset lingua
+                model.get('settings').on('change:language_preset', function(settingsModel) {
+                    var language = settingsModel.get('language_preset');
+                    
+                    if (language && language !== 'custom') {
+                        // Applica il preset dopo un piccolo delay
+                        setTimeout(function() {
+                            applyLanguagePreset(language, view);
+                        }, 100);
+                    }
+                });
+                
+                // Gestisci click sul pulsante Apply
+                panel.$el.on('click', '[data-event="docmanager:apply_language_preset"]', function() {
+                    var language = model.get('settings').get('language_preset');
+                    if (language && language !== 'custom') {
+                        applyLanguagePreset(language, view);
+                    }
+                });
+            });
+        });
+        </script>
+        <?php
     }
     
     private function get_file_icon($file_type) {
