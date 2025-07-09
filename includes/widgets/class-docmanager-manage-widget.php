@@ -95,9 +95,9 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             'apply_language_preset',
             array(
                 'label' => __('Apply Language Preset', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::BUTTON,
-                'text' => __('Apply', 'docmanager'),
-                'event' => 'docmanager:apply_language_preset',
+                'type' => \Elementor\Controls_Manager::RAW_HTML,
+                'raw' => '<button type="button" onclick="docmanagerApplyLanguagePreset(jQuery(this).closest(\'.elementor-panel\').find(\'[data-setting=language_preset]\').val(), \'docmanager_manage\', elementor.getPanelView().getCurrentPageView())" style="background: #0073aa; color: white; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 13px; min-width: 100px;">Apply Preset</button>',
+                'content_classes' => 'elementor-panel-alert elementor-panel-alert-info',
                 'condition' => array(
                     'language_preset!' => 'custom'
                 ),
@@ -689,7 +689,6 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             <div class="docmanager-manage-messages"></div>
         </div>
         
-        <!-- Inline JavaScript for functionality -->
         <script>
         jQuery(document).ready(function($) {
             // Edit button click
@@ -778,6 +777,12 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
                                 item.find('.docmanager-manage-description').text(newDescription);
                             }
                             
+                            // Update category if shown
+                            const newCategory = form.find('input[name="doc_category"]').val();
+                            if (newCategory) {
+                                item.find('.docmanager-meta-category').text(newCategory);
+                            }
+                            
                             editForm.hide();
                             content.show();
                             showMessage('success', docmanager_manage_widget.labels.document_updated);
@@ -787,6 +792,60 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
                     },
                     error: function() {
                         showMessage('error', 'Errore di connessione');
+                    }
+                });
+            });
+            
+            // Quick upload form submission
+            $('.docmanager-upload-form').on('submit', function(e) {
+                e.preventDefault();
+                
+                const form = $(this);
+                const formData = new FormData(this);
+                formData.append('action', 'docmanager_upload_frontend');
+                
+                $.ajax({
+                    url: docmanager_manage_widget.ajax_url,
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        const data = typeof response === 'string' ? JSON.parse(response) : response;
+                        
+                        if (data.success) {
+                            showMessage('success', 'Documento caricato con successo!');
+                            form[0].reset();
+                            // Refresh page to show new document
+                            setTimeout(function() {
+                                location.reload();
+                            }, 1500);
+                        } else {
+                            showMessage('error', data.message || 'Errore durante il caricamento');
+                        }
+                    },
+                    error: function() {
+                        showMessage('error', 'Errore di connessione');
+                    }
+                });
+            });
+            
+            // Search functionality
+            $('.docmanager-search-form').on('submit', function(e) {
+                e.preventDefault();
+                
+                const searchTerm = $(this).find('input[name="search_term"]').val().toLowerCase();
+                const items = $('.docmanager-manage-item');
+                
+                items.each(function() {
+                    const item = $(this);
+                    const title = item.find('.docmanager-manage-doc-title').text().toLowerCase();
+                    const description = item.find('.docmanager-manage-description').text().toLowerCase();
+                    
+                    if (title.includes(searchTerm) || description.includes(searchTerm)) {
+                        item.show();
+                    } else {
+                        item.hide();
                     }
                 });
             });
@@ -802,7 +861,6 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
         });
         </script>
         
-        <!-- CSS Styles -->
         <style>
         .docmanager-manage-item {
             margin-bottom: 20px;
@@ -1052,98 +1110,6 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             }
         }
         </style>
-        <?php
-        
-        // JavaScript for language preset functionality
-        if (\Elementor\Plugin::$instance->editor->is_edit_mode()) {
-            $this->render_language_preset_script();
-        }
-    }
-    
-    private function render_language_preset_script() {
-        ?>
-        <script>
-        jQuery(document).ready(function($) {
-            // Language preset functionality for manage widget
-            elementor.hooks.addAction('panel/open_editor/widget/docmanager_manage', function(panel, model, view) {
-                // Listen for language preset changes
-                view.on('change', function() {
-                    var languagePreset = view.getElementSettingsModel().get('language_preset');
-                    if (languagePreset && languagePreset !== 'custom') {
-                        applyLanguagePreset(languagePreset, view);
-                    }
-                });
-                
-                // Listen for apply button click
-                view.$el.on('click', '[data-event="docmanager:apply_language_preset"]', function() {
-                    var languagePreset = view.getElementSettingsModel().get('language_preset');
-                    if (languagePreset && languagePreset !== 'custom') {
-                        applyLanguagePreset(languagePreset, view);
-                    }
-                });
-            });
-            
-            function applyLanguagePreset(language, view) {
-                var presets = {
-                    'it': {
-                        'label_search_placeholder': 'Cerca i tuoi documenti...',
-                        'label_search_button': 'Cerca',
-                        'label_edit_button': 'Modifica',
-                        'label_delete_button': 'Elimina',
-                        'label_download_button': 'Scarica',
-                        'label_preview_button': 'Anteprima',
-                        'label_share_button': 'Condividi',
-                        'label_save_button': 'Salva Modifiche',
-                        'label_cancel_button': 'Annulla',
-                        'label_no_documents': 'Non hai ancora caricato documenti.',
-                        'label_login_required': 'Effettua il login per gestire i documenti.',
-                        'label_confirm_delete': 'Sei sicuro di voler eliminare questo documento?',
-                        'label_document_updated': 'Documento aggiornato con successo!',
-                        'label_document_deleted': 'Documento eliminato con successo!',
-                        'label_title_field': 'Titolo Documento',
-                        'label_description_field': 'Descrizione',
-                        'label_category_field': 'Categoria',
-                        'label_tags_field': 'Tag'
-                    },
-                    'en': {
-                        'label_search_placeholder': 'Search your documents...',
-                        'label_search_button': 'Search',
-                        'label_edit_button': 'Edit',
-                        'label_delete_button': 'Delete',
-                        'label_download_button': 'Download',
-                        'label_preview_button': 'Preview',
-                        'label_share_button': 'Share',
-                        'label_save_button': 'Save Changes',
-                        'label_cancel_button': 'Cancel',
-                        'label_no_documents': 'You haven\'t uploaded any documents yet.',
-                        'label_login_required': 'Please login to manage your documents.',
-                        'label_confirm_delete': 'Are you sure you want to delete this document?',
-                        'label_document_updated': 'Document updated successfully!',
-                        'label_document_deleted': 'Document deleted successfully!',
-                        'label_title_field': 'Document Title',
-                        'label_description_field': 'Description',
-                        'label_category_field': 'Category',
-                        'label_tags_field': 'Tags'
-                    }
-                };
-                
-                if (presets[language]) {
-                    var preset = presets[language];
-                    var settings = view.getElementSettingsModel();
-                    
-                    // Apply each preset value
-                    Object.keys(preset).forEach(function(key) {
-                        settings.set(key, preset[key]);
-                    });
-                    
-                    // Refresh the panel
-                    setTimeout(function() {
-                        elementor.getPanelView().refreshPanel();
-                    }, 100);
-                }
-            }
-        });
-        </script>
         <?php
     }
     
