@@ -21,85 +21,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
         return array('docmanager');
     }
     
-    private function get_language_presets() {
-        return array(
-            'it' => array(
-                'label_title_field' => 'Titolo Documento',
-                'label_description_field' => 'Descrizione',
-                'label_category_field' => 'Categoria',
-                'label_tags_field' => 'Tag',
-                'label_file_field' => 'Seleziona File',
-                'label_upload_button' => 'Carica Documento',
-                'label_drop_zone' => 'Trascina qui il file, o clicca per sfogliare',
-                'label_file_info' => 'Dimensione massima: %sMB. Tipi consentiti: %s',
-                'label_login_required' => 'Effettua il login per caricare documenti.',
-                'label_upload_success' => 'Documento caricato con successo!',
-                'label_upload_error' => 'Errore durante il caricamento. Riprova.',
-                'placeholder_title' => 'Inserisci il titolo del documento',
-                'placeholder_description' => 'Inserisci una descrizione',
-                'placeholder_category' => 'es. Contratti, Report, ecc.',
-                'placeholder_tags' => 'Separa i tag con virgole'
-            ),
-            'en' => array(
-                'label_title_field' => 'Document Title',
-                'label_description_field' => 'Description',
-                'label_category_field' => 'Category',
-                'label_tags_field' => 'Tags',
-                'label_file_field' => 'Select File',
-                'label_upload_button' => 'Upload Document',
-                'label_drop_zone' => 'Drag and drop file here, or click to browse',
-                'label_file_info' => 'Max size: %sMB. Allowed types: %s',
-                'label_login_required' => 'Please login to upload documents.',
-                'label_upload_success' => 'Document uploaded successfully!',
-                'label_upload_error' => 'Error uploading document. Please try again.',
-                'placeholder_title' => 'Enter document title',
-                'placeholder_description' => 'Enter description',
-                'placeholder_category' => 'e.g. Contracts, Reports, etc.',
-                'placeholder_tags' => 'Separate tags with commas'
-            )
-        );
-    }
-    
     protected function register_controls() {
-        // Language Preset Section
-        $this->start_controls_section(
-            'language_preset_section',
-            array(
-                'label' => __('Language Preset', 'docmanager'),
-                'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
-            )
-        );
-        
-        $this->add_control(
-            'language_preset',
-            array(
-                'label' => __('Select Language', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::SELECT,
-                'default' => 'it',
-                'options' => array(
-                    'it' => __('Italian', 'docmanager'),
-                    'en' => __('English', 'docmanager'),
-                    'custom' => __('Custom Labels', 'docmanager'),
-                ),
-                'description' => __('Choose a language preset or use custom labels', 'docmanager'),
-            )
-        );
-        
-        $this->add_control(
-            'apply_language_preset',
-            array(
-                'label' => __('Apply Language Preset', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::RAW_HTML,
-                'raw' => '<button type="button" onclick="docmanagerApplyLanguagePreset(jQuery(this).closest(\'.elementor-panel\').find(\'[data-setting=language_preset]\').val(), \'docmanager_upload\', elementor.getPanelView().getCurrentPageView())" style="background: #0073aa; color: white; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 13px; min-width: 100px;">Apply Preset</button>',
-                'content_classes' => 'elementor-panel-alert elementor-panel-alert-info',
-                'condition' => array(
-                    'language_preset!' => 'custom'
-                ),
-            )
-        );
-        
-        $this->end_controls_section();
-        
         // Upload Settings Section
         $this->start_controls_section(
             'content_section',
@@ -260,11 +182,11 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
         
         $this->end_controls_section();
         
-        // Custom Labels Section
+        // Labels Section
         $this->start_controls_section(
             'labels_section',
             array(
-                'label' => __('Custom Labels', 'docmanager'),
+                'label' => __('Field Labels', 'docmanager'),
                 'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
             )
         );
@@ -274,7 +196,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Title Field Label', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => 'Titolo Documento',
+                'default' => __('Document Title', 'docmanager'),
                 'condition' => array('show_title_field' => 'yes'),
             )
         );
@@ -284,7 +206,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Description Field Label', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => 'Descrizione',
+                'default' => __('Description', 'docmanager'),
                 'condition' => array('show_description_field' => 'yes'),
             )
         );
@@ -294,7 +216,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Category Field Label', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => 'Categoria',
+                'default' => __('Category', 'docmanager'),
                 'condition' => array('show_category_field' => 'yes'),
             )
         );
@@ -304,7 +226,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Tags Field Label', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => 'Tag',
+                'default' => __('Tags', 'docmanager'),
                 'condition' => array('show_tags_field' => 'yes'),
             )
         );
@@ -314,7 +236,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('File Field Label', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => 'Seleziona File',
+                'default' => __('Select File', 'docmanager'),
             )
         );
         
@@ -323,7 +245,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Upload Button Text', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => 'Carica Documento',
+                'default' => __('Upload Document', 'docmanager'),
             )
         );
         
@@ -332,7 +254,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Drop Zone Text', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => 'Trascina qui il file, o clicca per sfogliare',
+                'default' => __('Drag and drop file here or click to browse', 'docmanager'),
             )
         );
         
@@ -341,8 +263,8 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('File Info Text', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => 'Dimensione massima: %sMB. Tipi consentiti: %s',
-                'description' => __('Use %s placeholders for size and types', 'docmanager'),
+                'default' => __('Max size: %dMB. Allowed types: %s', 'docmanager'),
+                'description' => __('Use %d for size and %s for types', 'docmanager'),
             )
         );
         
@@ -351,7 +273,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Login Required Message', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => 'Effettua il login per caricare documenti.',
+                'default' => __('Please login to upload documents.', 'docmanager'),
             )
         );
         
@@ -360,7 +282,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Upload Success Message', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => 'Documento caricato con successo!',
+                'default' => __('Document uploaded successfully!', 'docmanager'),
             )
         );
         
@@ -369,7 +291,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Upload Error Message', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => 'Errore durante il caricamento. Riprova.',
+                'default' => __('Error uploading document. Please try again.', 'docmanager'),
             )
         );
         
@@ -388,7 +310,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Title Placeholder', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => 'Inserisci il titolo del documento',
+                'default' => __('Enter document title', 'docmanager'),
                 'condition' => array('show_title_field' => 'yes'),
             )
         );
@@ -398,7 +320,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Description Placeholder', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => 'Inserisci una descrizione',
+                'default' => __('Enter description', 'docmanager'),
                 'condition' => array('show_description_field' => 'yes'),
             )
         );
@@ -408,7 +330,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Category Placeholder', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => 'es. Contratti, Report, ecc.',
+                'default' => __('e.g. Contracts, Reports, etc.', 'docmanager'),
                 'condition' => array('show_category_field' => 'yes'),
             )
         );
@@ -418,7 +340,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Tags Placeholder', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => 'Separa i tag con virgole',
+                'default' => __('Separate tags with commas', 'docmanager'),
                 'condition' => array('show_tags_field' => 'yes'),
             )
         );
@@ -553,19 +475,6 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
     
     protected function render() {
         $settings = $this->get_settings_for_display();
-        
-        // Apply language preset if selected
-        if (!empty($settings['language_preset']) && $settings['language_preset'] !== 'custom') {
-            $presets = $this->get_language_presets();
-            if (isset($presets[$settings['language_preset']])) {
-                $preset = $presets[$settings['language_preset']];
-                foreach ($preset as $key => $value) {
-                    if (empty($settings[$key])) {
-                        $settings[$key] = $value;
-                    }
-                }
-            }
-        }
         
         if (!is_user_logged_in()) {
             echo '<div class="docmanager-login-required">';
@@ -710,88 +619,6 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             </div>
         </div>
         
-        <?php
-        // Il JavaScript per i preset lingua è ora gestito globalmente
-    }
-    
-    private function render_language_preset_script() {
-        ?>
-        <script>
-        jQuery(document).ready(function($) {
-            // Language preset functionality for upload widget
-            elementor.hooks.addAction('panel/open_editor/widget/docmanager_upload', function(panel, model, view) {
-                // Listen for language preset changes
-                view.on('change', function() {
-                    var languagePreset = view.getElementSettingsModel().get('language_preset');
-                    if (languagePreset && languagePreset !== 'custom') {
-                        applyLanguagePreset(languagePreset, view);
-                    }
-                });
-                
-                // Listen for apply button click
-                view.$el.on('click', '[data-event="docmanager:apply_language_preset"]', function() {
-                    var languagePreset = view.getElementSettingsModel().get('language_preset');
-                    if (languagePreset && languagePreset !== 'custom') {
-                        applyLanguagePreset(languagePreset, view);
-                    }
-                });
-            });
-            
-            function applyLanguagePreset(language, view) {
-                var presets = {
-                    'it': {
-                        'label_title_field': 'Titolo Documento',
-                        'label_description_field': 'Descrizione',
-                        'label_category_field': 'Categoria',
-                        'label_tags_field': 'Tag',
-                        'label_file_field': 'Seleziona File',
-                        'label_upload_button': 'Carica Documento',
-                        'label_drop_zone': 'Trascina qui il file, o clicca per sfogliare',
-                        'label_file_info': 'Dimensione massima: %sMB. Tipi consentiti: %s',
-                        'label_login_required': 'Effettua il login per caricare documenti.',
-                        'label_upload_success': 'Documento caricato con successo!',
-                        'label_upload_error': 'Errore durante il caricamento. Riprova.',
-                        'placeholder_title': 'Inserisci il titolo del documento',
-                        'placeholder_description': 'Inserisci una descrizione',
-                        'placeholder_category': 'es. Contratti, Report, ecc.',
-                        'placeholder_tags': 'Separa i tag con virgole'
-                    },
-                    'en': {
-                        'label_title_field': 'Document Title',
-                        'label_description_field': 'Description',
-                        'label_category_field': 'Category',
-                        'label_tags_field': 'Tags',
-                        'label_file_field': 'Select File',
-                        'label_upload_button': 'Upload Document',
-                        'label_drop_zone': 'Drag and drop file here, or click to browse',
-                        'label_file_info': 'Max size: %sMB. Allowed types: %s',
-                        'label_login_required': 'Please login to upload documents.',
-                        'label_upload_success': 'Document uploaded successfully!',
-                        'label_upload_error': 'Error uploading document. Please try again.',
-                        'placeholder_title': 'Enter document title',
-                        'placeholder_description': 'Enter description',
-                        'placeholder_category': 'e.g. Contracts, Reports, etc.',
-                        'placeholder_tags': 'Separate tags with commas'
-                    }
-                };
-                
-                if (presets[language]) {
-                    var preset = presets[language];
-                    var settings = view.getElementSettingsModel();
-                    
-                    // Apply each preset value
-                    Object.keys(preset).forEach(function(key) {
-                        settings.set(key, preset[key]);
-                    });
-                    
-                    // Refresh the panel
-                    setTimeout(function() {
-                        elementor.getPanelView().refreshPanel();
-                    }, 100);
-                }
-            }
-        });
-        </script>
         <?php
     }
 }

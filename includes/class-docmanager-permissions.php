@@ -141,40 +141,44 @@ class DocManager_Permissions {
     }
     
     private function check_user_document_permission($user_id, $document_id, $permission_type = 'view') {
-        global $wpdb;
-        $permissions_table = $wpdb->prefix . 'docmanager_permissions';
-        
-        $user = get_userdata($user_id);
-        $user_roles = $user->roles;
-        
-        // Verifica permesso diretto per l'utente
-        $direct_permission = $wpdb->get_var($wpdb->prepare(
-            "SELECT id FROM {$permissions_table} 
-             WHERE document_id = %d AND user_id = %d AND permission_type = %s",
-            $document_id, $user_id, $permission_type
-        ));
-        
-        if ($direct_permission) {
-            return true;
-        }
-        
-        // Verifica permesso per ruolo
-        if (!empty($user_roles)) {
-            $placeholders = implode(',', array_fill(0, count($user_roles), '%s'));
-            $query = "SELECT id FROM {$permissions_table} 
-                      WHERE document_id = %d AND user_role IN ({$placeholders}) AND permission_type = %s";
-            
-            $params = array_merge(array($document_id), $user_roles, array($permission_type));
-            
-            $role_permission = $wpdb->get_var($wpdb->prepare($query, $params));
-            
-            if ($role_permission) {
-                return true;
-            }
-        }
-        
-        return false;
-    }
+		global $wpdb;
+		
+		$user = get_userdata($user_id);
+		if (!$user) {
+			return false;
+		}
+		
+		$user_roles = $user->roles;
+		$permissions_table = $wpdb->prefix . 'docmanager_permissions';
+		
+		// Query separata per permesso diretto
+		$direct_permission = $wpdb->get_var($wpdb->prepare(
+			"SELECT id FROM {$permissions_table} 
+			 WHERE document_id = %d AND user_id = %d AND permission_type = %s",
+			$document_id, $user_id, $permission_type
+		));
+		
+		if ($direct_permission) {
+			return true;
+		}
+		
+		// Query separata per permessi ruolo
+		if (!empty($user_roles)) {
+			foreach ($user_roles as $role) {
+				$role_permission = $wpdb->get_var($wpdb->prepare(
+					"SELECT id FROM {$permissions_table} 
+					 WHERE document_id = %d AND user_role = %s AND permission_type = %s",
+					$document_id, $role, $permission_type
+				));
+				
+				if ($role_permission) {
+					return true;
+				}
+			}
+		}
+		
+		return false;
+	}
     
     public function assign_permission($document_id, $user_id = null, $user_role = null, $user_group = null, $permission_type = 'view') {
         if (!current_user_can('assign_document_permissions') && !current_user_can('manage_options')) {
