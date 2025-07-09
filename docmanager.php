@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Document Manager Pro
  * Description: Sistema di gestione documentale con integrazione Elementor e area riservata
- * Version: 0.1.4
+ * Version: 0.1.5
  * Author: SilverStudioDM
  */
 
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
 
 define('DOCMANAGER_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('DOCMANAGER_PLUGIN_PATH', plugin_dir_path(__FILE__));
-define('DOCMANAGER_VERSION', '0.1.4');
+define('DOCMANAGER_VERSION', '0.1.5');
 
 class DocManagerPlugin {
     
@@ -33,7 +33,7 @@ class DocManagerPlugin {
             'includes/class-docmanager-db.php',
             'includes/class-docmanager-admin.php',
             'includes/class-docmanager-frontend.php',
-            'includes/class-docmanager-permissions.php', // Nome corretto
+            'includes/class-docmanager-permissions.php',
             'includes/class-docmanager-elementor.php',
             'includes/class-docmanager-ajax.php'
         );
