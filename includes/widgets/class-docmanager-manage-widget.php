@@ -21,11 +21,91 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
         return array('docmanager');
     }
     
-    public function get_keywords() {
-        return array('manage', 'edit', 'delete', 'documents', 'docmanager');
+    private function get_language_presets() {
+        return array(
+            'it' => array(
+                'label_search_placeholder' => 'Cerca i tuoi documenti...',
+                'label_search_button' => 'Cerca',
+                'label_edit_button' => 'Modifica',
+                'label_delete_button' => 'Elimina',
+                'label_download_button' => 'Scarica',
+                'label_preview_button' => 'Anteprima',
+                'label_share_button' => 'Condividi',
+                'label_save_button' => 'Salva Modifiche',
+                'label_cancel_button' => 'Annulla',
+                'label_no_documents' => 'Non hai ancora caricato documenti.',
+                'label_login_required' => 'Effettua il login per gestire i documenti.',
+                'label_confirm_delete' => 'Sei sicuro di voler eliminare questo documento?',
+                'label_document_updated' => 'Documento aggiornato con successo!',
+                'label_document_deleted' => 'Documento eliminato con successo!',
+                'label_title_field' => 'Titolo Documento',
+                'label_description_field' => 'Descrizione',
+                'label_category_field' => 'Categoria',
+                'label_tags_field' => 'Tag'
+            ),
+            'en' => array(
+                'label_search_placeholder' => 'Search your documents...',
+                'label_search_button' => 'Search',
+                'label_edit_button' => 'Edit',
+                'label_delete_button' => 'Delete',
+                'label_download_button' => 'Download',
+                'label_preview_button' => 'Preview',
+                'label_share_button' => 'Share',
+                'label_save_button' => 'Save Changes',
+                'label_cancel_button' => 'Cancel',
+                'label_no_documents' => 'You haven\'t uploaded any documents yet.',
+                'label_login_required' => 'Please login to manage your documents.',
+                'label_confirm_delete' => 'Are you sure you want to delete this document?',
+                'label_document_updated' => 'Document updated successfully!',
+                'label_document_deleted' => 'Document deleted successfully!',
+                'label_title_field' => 'Document Title',
+                'label_description_field' => 'Description',
+                'label_category_field' => 'Category',
+                'label_tags_field' => 'Tags'
+            )
+        );
     }
     
     protected function register_controls() {
+        // Language Preset Section
+        $this->start_controls_section(
+            'language_preset_section',
+            array(
+                'label' => __('Language Preset', 'docmanager'),
+                'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
+            )
+        );
+        
+        $this->add_control(
+            'language_preset',
+            array(
+                'label' => __('Select Language', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::SELECT,
+                'default' => 'it',
+                'options' => array(
+                    'it' => __('Italian', 'docmanager'),
+                    'en' => __('English', 'docmanager'),
+                    'custom' => __('Custom Labels', 'docmanager'),
+                ),
+                'description' => __('Choose a language preset or use custom labels', 'docmanager'),
+            )
+        );
+        
+        $this->add_control(
+            'apply_language_preset',
+            array(
+                'label' => __('Apply Language Preset', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::BUTTON,
+                'text' => __('Apply', 'docmanager'),
+                'event' => 'docmanager:apply_language_preset',
+                'condition' => array(
+                    'language_preset!' => 'custom'
+                ),
+            )
+        );
+        
+        $this->end_controls_section();
+        
         // Content Section
         $this->start_controls_section(
             'content_section',
@@ -143,7 +223,7 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Search Placeholder', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Search your documents...', 'docmanager'),
+                'default' => 'Cerca i tuoi documenti...',
                 'condition' => array('show_search' => 'yes'),
             )
         );
@@ -153,7 +233,7 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Search Button', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Search', 'docmanager'),
+                'default' => 'Cerca',
                 'condition' => array('show_search' => 'yes'),
             )
         );
@@ -163,7 +243,7 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Edit Button', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Edit', 'docmanager'),
+                'default' => 'Modifica',
             )
         );
         
@@ -172,7 +252,7 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Delete Button', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Delete', 'docmanager'),
+                'default' => 'Elimina',
             )
         );
         
@@ -181,7 +261,7 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Download Button', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Download', 'docmanager'),
+                'default' => 'Scarica',
             )
         );
         
@@ -190,7 +270,7 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Preview Button', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Preview', 'docmanager'),
+                'default' => 'Anteprima',
             )
         );
         
@@ -199,7 +279,7 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Share Button', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Share', 'docmanager'),
+                'default' => 'Condividi',
             )
         );
         
@@ -208,7 +288,7 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Save Button', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Save Changes', 'docmanager'),
+                'default' => 'Salva Modifiche',
             )
         );
         
@@ -217,7 +297,7 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Cancel Button', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Cancel', 'docmanager'),
+                'default' => 'Annulla',
             )
         );
         
@@ -226,7 +306,7 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('No Documents Message', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('You haven\'t uploaded any documents yet.', 'docmanager'),
+                'default' => 'Non hai ancora caricato documenti.',
             )
         );
         
@@ -235,7 +315,7 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Login Required Message', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Please login to manage your documents.', 'docmanager'),
+                'default' => 'Effettua il login per gestire i documenti.',
             )
         );
         
@@ -244,7 +324,7 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Confirm Delete Message', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Are you sure you want to delete this document?', 'docmanager'),
+                'default' => 'Sei sicuro di voler eliminare questo documento?',
             )
         );
         
@@ -253,7 +333,7 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Document Updated Message', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Document updated successfully!', 'docmanager'),
+                'default' => 'Documento aggiornato con successo!',
             )
         );
         
@@ -262,17 +342,26 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Document Deleted Message', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Document deleted successfully!', 'docmanager'),
+                'default' => 'Documento eliminato con successo!',
             )
         );
         
         // Form Labels
         $this->add_control(
+            'form_labels_divider',
+            array(
+                'label' => __('Form Labels', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::HEADING,
+                'separator' => 'before',
+            )
+        );
+        
+        $this->add_control(
             'label_title_field',
             array(
                 'label' => __('Title Field Label', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Document Title', 'docmanager'),
+                'default' => 'Titolo Documento',
             )
         );
         
@@ -281,7 +370,7 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Description Field Label', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Description', 'docmanager'),
+                'default' => 'Descrizione',
             )
         );
         
@@ -290,7 +379,7 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Category Field Label', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Category', 'docmanager'),
+                'default' => 'Categoria',
             )
         );
         
@@ -299,13 +388,18 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Tags Field Label', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Tags', 'docmanager'),
+                'default' => 'Tag',
             )
         );
         
         $this->end_controls_section();
         
-        // Style Section
+        // Style sections
+        $this->register_style_controls();
+    }
+    
+    private function register_style_controls() {
+        // General Style
         $this->start_controls_section(
             'style_section',
             array(
@@ -367,7 +461,7 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
         
         $this->end_controls_section();
         
-        // Button Style Section
+        // Button Style
         $this->start_controls_section(
             'button_style_section',
             array(
@@ -418,6 +512,19 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
     protected function render() {
         $settings = $this->get_settings_for_display();
         
+        // Apply language preset if selected
+        if (!empty($settings['language_preset']) && $settings['language_preset'] !== 'custom') {
+            $presets = $this->get_language_presets();
+            if (isset($presets[$settings['language_preset']])) {
+                $preset = $presets[$settings['language_preset']];
+                foreach ($preset as $key => $value) {
+                    if (empty($settings[$key])) {
+                        $settings[$key] = $value;
+                    }
+                }
+            }
+        }
+        
         if (!is_user_logged_in()) {
             echo '<div class="docmanager-login-required">';
             echo '<p>' . esc_html($settings['label_login_required']) . '</p>';
@@ -425,11 +532,9 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             return;
         }
         
-        // Enqueue scripts
         wp_enqueue_script('docmanager-frontend');
         wp_enqueue_style('docmanager-frontend');
         
-        // Localizza script
         wp_localize_script('docmanager-frontend', 'docmanager_manage_widget', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('docmanager_manage_nonce'),
@@ -442,12 +547,8 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
         
         $db = new DocManager_DB();
         $user_id = get_current_user_id();
-        $user_roles = wp_get_current_user()->roles;
         
-        // Ottieni solo i documenti caricati dall'utente corrente
         $documents = $db->get_user_documents($user_id, array());
-        
-        // Filtra solo i documenti caricati dall'utente corrente
         $user_documents = array_filter($documents, function($doc) use ($user_id) {
             return $doc->uploaded_by == $user_id;
         });
@@ -545,7 +646,6 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
                                 <?php endif; ?>
                             </div>
                             
-                            <!-- Edit Form (Hidden by default) -->
                             <div class="docmanager-edit-form" style="display: none;">
                                 <form class="docmanager-update-form">
                                     <?php wp_nonce_field('docmanager_update_nonce', 'update_nonce'); ?>
@@ -589,146 +689,7 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
             <div class="docmanager-manage-messages"></div>
         </div>
         
-        <style>
-        .docmanager-manage-item {
-            margin-bottom: 20px;
-            padding: 20px;
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-        }
-        
-        .docmanager-manage-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
-        .docmanager-manage-actions {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .docmanager-btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 14px;
-            color: white;
-            transition: opacity 0.2s;
-        }
-        
-        .docmanager-btn:hover {
-            opacity: 0.8;
-        }
-        
-        .docmanager-btn-edit {
-            background: #0073aa;
-        }
-        
-        .docmanager-btn-delete {
-            background: #d63638;
-        }
-        
-        .docmanager-btn-download {
-            background: #00a32a;
-        }
-        
-        .docmanager-btn-preview {
-            background: #666;
-        }
-        
-        .docmanager-manage-meta {
-            display: flex;
-            gap: 15px;
-            font-size: 13px;
-            color: #666;
-        }
-        
-        .docmanager-edit-form {
-            margin-top: 15px;
-            padding: 15px;
-            background: #f9f9f9;
-            border-radius: 4px;
-        }
-        
-        .docmanager-form-row {
-            margin-bottom: 15px;
-        }
-        
-        .docmanager-form-row label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 600;
-        }
-        
-        .docmanager-form-row input,
-        .docmanager-form-row textarea {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        
-        .docmanager-form-actions {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .docmanager-quick-upload {
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f0f8ff;
-            border-radius: 4px;
-        }
-        
-        .docmanager-upload-row {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        
-        .docmanager-upload-row input[type="text"] {
-            flex: 1;
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        
-        .docmanager-upload-row input[type="file"] {
-            flex: 1;
-        }
-        
-        .docmanager-btn-upload {
-            background: #0073aa;
-            color: white;
-            padding: 8px 16px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        
-        @media (max-width: 768px) {
-            .docmanager-manage-header {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 10px;
-            }
-            
-            .docmanager-manage-actions {
-                flex-wrap: wrap;
-            }
-            
-            .docmanager-upload-row {
-                flex-direction: column;
-            }
-        }
-        </style>
-        
+        <!-- Inline JavaScript for functionality -->
         <script>
         jQuery(document).ready(function($) {
             // Edit button click
@@ -837,6 +798,349 @@ class DocManager_Manage_Widget extends \Elementor\Widget_Base {
                 setTimeout(function() {
                     messageDiv.fadeOut();
                 }, 5000);
+            }
+        });
+        </script>
+        
+        <!-- CSS Styles -->
+        <style>
+        .docmanager-manage-item {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            transition: box-shadow 0.2s;
+        }
+        
+        .docmanager-manage-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .docmanager-manage-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .docmanager-manage-doc-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+            color: #2c3e50;
+        }
+        
+        .docmanager-manage-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .docmanager-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            color: white;
+            transition: opacity 0.2s;
+        }
+        
+        .docmanager-btn:hover {
+            opacity: 0.8;
+        }
+        
+        .docmanager-btn-edit {
+            background: #0073aa;
+        }
+        
+        .docmanager-btn-delete {
+            background: #d63638;
+        }
+        
+        .docmanager-btn-download {
+            background: #00a32a;
+        }
+        
+        .docmanager-btn-preview {
+            background: #666;
+        }
+        
+        .docmanager-btn-save {
+            background: #00a32a;
+        }
+        
+        .docmanager-btn-cancel {
+            background: #666;
+        }
+        
+        .docmanager-manage-description {
+            color: #666;
+            line-height: 1.5;
+            margin-bottom: 15px;
+        }
+        
+        .docmanager-manage-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .docmanager-meta-category {
+            background: #e7f3ff;
+            color: #0073aa;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+        
+        .docmanager-edit-form {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        
+        .docmanager-form-row {
+            margin-bottom: 15px;
+        }
+        
+        .docmanager-form-row label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        .docmanager-form-row input,
+        .docmanager-form-row textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        .docmanager-form-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .docmanager-quick-upload {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f0f8ff;
+            border-radius: 4px;
+        }
+        
+        .docmanager-quick-upload h4 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+        }
+        
+        .docmanager-upload-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .docmanager-upload-row input[type="text"] {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .docmanager-upload-row input[type="file"] {
+            flex: 1;
+        }
+        
+        .docmanager-btn-upload {
+            background: #0073aa;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        
+        .docmanager-btn-upload:hover {
+            background: #005a87;
+        }
+        
+        .docmanager-manage-search {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        
+        .docmanager-search-form {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .docmanager-search-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .docmanager-search-btn {
+            background: #0073aa;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .docmanager-search-btn:hover {
+            background: #005a87;
+        }
+        
+        .docmanager-message {
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .docmanager-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .docmanager-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .docmanager-no-documents {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+        
+        @media (max-width: 768px) {
+            .docmanager-manage-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 15px;
+            }
+            
+            .docmanager-manage-actions {
+                flex-wrap: wrap;
+            }
+            
+            .docmanager-upload-row {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .docmanager-upload-row input[type="text"],
+            .docmanager-upload-row input[type="file"] {
+                width: 100%;
+            }
+            
+            .docmanager-form-actions {
+                flex-direction: column;
+            }
+        }
+        </style>
+        <?php
+        
+        // JavaScript for language preset functionality
+        if (\Elementor\Plugin::$instance->editor->is_edit_mode()) {
+            $this->render_language_preset_script();
+        }
+    }
+    
+    private function render_language_preset_script() {
+        ?>
+        <script>
+        jQuery(document).ready(function($) {
+            // Language preset functionality for manage widget
+            elementor.hooks.addAction('panel/open_editor/widget/docmanager_manage', function(panel, model, view) {
+                // Listen for language preset changes
+                view.on('change', function() {
+                    var languagePreset = view.getElementSettingsModel().get('language_preset');
+                    if (languagePreset && languagePreset !== 'custom') {
+                        applyLanguagePreset(languagePreset, view);
+                    }
+                });
+                
+                // Listen for apply button click
+                view.$el.on('click', '[data-event="docmanager:apply_language_preset"]', function() {
+                    var languagePreset = view.getElementSettingsModel().get('language_preset');
+                    if (languagePreset && languagePreset !== 'custom') {
+                        applyLanguagePreset(languagePreset, view);
+                    }
+                });
+            });
+            
+            function applyLanguagePreset(language, view) {
+                var presets = {
+                    'it': {
+                        'label_search_placeholder': 'Cerca i tuoi documenti...',
+                        'label_search_button': 'Cerca',
+                        'label_edit_button': 'Modifica',
+                        'label_delete_button': 'Elimina',
+                        'label_download_button': 'Scarica',
+                        'label_preview_button': 'Anteprima',
+                        'label_share_button': 'Condividi',
+                        'label_save_button': 'Salva Modifiche',
+                        'label_cancel_button': 'Annulla',
+                        'label_no_documents': 'Non hai ancora caricato documenti.',
+                        'label_login_required': 'Effettua il login per gestire i documenti.',
+                        'label_confirm_delete': 'Sei sicuro di voler eliminare questo documento?',
+                        'label_document_updated': 'Documento aggiornato con successo!',
+                        'label_document_deleted': 'Documento eliminato con successo!',
+                        'label_title_field': 'Titolo Documento',
+                        'label_description_field': 'Descrizione',
+                        'label_category_field': 'Categoria',
+                        'label_tags_field': 'Tag'
+                    },
+                    'en': {
+                        'label_search_placeholder': 'Search your documents...',
+                        'label_search_button': 'Search',
+                        'label_edit_button': 'Edit',
+                        'label_delete_button': 'Delete',
+                        'label_download_button': 'Download',
+                        'label_preview_button': 'Preview',
+                        'label_share_button': 'Share',
+                        'label_save_button': 'Save Changes',
+                        'label_cancel_button': 'Cancel',
+                        'label_no_documents': 'You haven\'t uploaded any documents yet.',
+                        'label_login_required': 'Please login to manage your documents.',
+                        'label_confirm_delete': 'Are you sure you want to delete this document?',
+                        'label_document_updated': 'Document updated successfully!',
+                        'label_document_deleted': 'Document deleted successfully!',
+                        'label_title_field': 'Document Title',
+                        'label_description_field': 'Description',
+                        'label_category_field': 'Category',
+                        'label_tags_field': 'Tags'
+                    }
+                };
+                
+                if (presets[language]) {
+                    var preset = presets[language];
+                    var settings = view.getElementSettingsModel();
+                    
+                    // Apply each preset value
+                    Object.keys(preset).forEach(function(key) {
+                        settings.set(key, preset[key]);
+                    });
+                    
+                    // Refresh the panel
+                    setTimeout(function() {
+                        elementor.getPanelView().refreshPanel();
+                    }, 100);
+                }
             }
         });
         </script>

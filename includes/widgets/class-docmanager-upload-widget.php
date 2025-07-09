@@ -21,12 +21,86 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
         return array('docmanager');
     }
     
-    public function get_keywords() {
-        return array('upload', 'documents', 'files', 'docmanager');
+    private function get_language_presets() {
+        return array(
+            'it' => array(
+                'label_title_field' => 'Titolo Documento',
+                'label_description_field' => 'Descrizione',
+                'label_category_field' => 'Categoria',
+                'label_tags_field' => 'Tag',
+                'label_file_field' => 'Seleziona File',
+                'label_upload_button' => 'Carica Documento',
+                'label_drop_zone' => 'Trascina qui il file, o clicca per sfogliare',
+                'label_file_info' => 'Dimensione massima: %sMB. Tipi consentiti: %s',
+                'label_login_required' => 'Effettua il login per caricare documenti.',
+                'label_upload_success' => 'Documento caricato con successo!',
+                'label_upload_error' => 'Errore durante il caricamento. Riprova.',
+                'placeholder_title' => 'Inserisci il titolo del documento',
+                'placeholder_description' => 'Inserisci una descrizione',
+                'placeholder_category' => 'es. Contratti, Report, ecc.',
+                'placeholder_tags' => 'Separa i tag con virgole'
+            ),
+            'en' => array(
+                'label_title_field' => 'Document Title',
+                'label_description_field' => 'Description',
+                'label_category_field' => 'Category',
+                'label_tags_field' => 'Tags',
+                'label_file_field' => 'Select File',
+                'label_upload_button' => 'Upload Document',
+                'label_drop_zone' => 'Drag and drop file here, or click to browse',
+                'label_file_info' => 'Max size: %sMB. Allowed types: %s',
+                'label_login_required' => 'Please login to upload documents.',
+                'label_upload_success' => 'Document uploaded successfully!',
+                'label_upload_error' => 'Error uploading document. Please try again.',
+                'placeholder_title' => 'Enter document title',
+                'placeholder_description' => 'Enter description',
+                'placeholder_category' => 'e.g. Contracts, Reports, etc.',
+                'placeholder_tags' => 'Separate tags with commas'
+            )
+        );
     }
     
     protected function register_controls() {
-        // Content Section
+        // Language Preset Section
+        $this->start_controls_section(
+            'language_preset_section',
+            array(
+                'label' => __('Language Preset', 'docmanager'),
+                'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
+            )
+        );
+        
+        $this->add_control(
+            'language_preset',
+            array(
+                'label' => __('Select Language', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::SELECT,
+                'default' => 'it',
+                'options' => array(
+                    'it' => __('Italian', 'docmanager'),
+                    'en' => __('English', 'docmanager'),
+                    'custom' => __('Custom Labels', 'docmanager'),
+                ),
+                'description' => __('Choose a language preset or use custom labels', 'docmanager'),
+            )
+        );
+        
+        $this->add_control(
+            'apply_language_preset',
+            array(
+                'label' => __('Apply Language Preset', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::BUTTON,
+                'text' => __('Apply', 'docmanager'),
+                'event' => 'docmanager:apply_language_preset',
+                'condition' => array(
+                    'language_preset!' => 'custom'
+                ),
+            )
+        );
+        
+        $this->end_controls_section();
+        
+        // Upload Settings Section
         $this->start_controls_section(
             'content_section',
             array(
@@ -41,7 +115,6 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
                 'label' => __('Form Title', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
                 'default' => __('Upload Document', 'docmanager'),
-                'placeholder' => __('Enter form title', 'docmanager'),
             )
         );
         
@@ -51,7 +124,6 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
                 'label' => __('Form Description', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXTAREA,
                 'placeholder' => __('Enter form description', 'docmanager'),
-                'description' => __('Optional description shown above the form', 'docmanager'),
             )
         );
         
@@ -61,7 +133,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
                 'label' => __('Allowed File Types', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
                 'default' => 'pdf,doc,docx,xls,xlsx,jpg,jpeg,png',
-                'description' => __('Comma separated file extensions (without dots)', 'docmanager'),
+                'description' => __('Comma separated file extensions', 'docmanager'),
             )
         );
         
@@ -73,7 +145,6 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
                 'default' => 10,
                 'min' => 1,
                 'max' => 100,
-                'description' => __('Maximum file size in megabytes', 'docmanager'),
             )
         );
         
@@ -114,12 +185,21 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
         );
         
         $this->add_control(
+            'show_user_selector',
+            array(
+                'label' => __('Show User Selector', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::SWITCHER,
+                'default' => 'no',
+                'description' => __('Allow users to select a specific user when uploading', 'docmanager'),
+            )
+        );
+        
+        $this->add_control(
             'redirect_after_upload',
             array(
                 'label' => __('Redirect After Upload', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::URL,
                 'placeholder' => __('https://your-site.com/thank-you', 'docmanager'),
-                'description' => __('Leave empty to stay on the same page', 'docmanager'),
             )
         );
         
@@ -156,7 +236,6 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
                 'label' => __('Specific User ID', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
                 'condition' => array('document_visibility' => 'specific_user'),
-                'description' => __('Enter the user ID who can view this document', 'docmanager'),
             )
         );
         
@@ -169,16 +248,6 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
                 'condition' => array('document_visibility' => 'specific_role'),
             )
         );
-		
-		$this->add_control(
-			'show_user_selector',
-			array(
-				'label' => __('Show User Selector', 'docmanager'),
-				'type' => \Elementor\Controls_Manager::SWITCHER,
-				'default' => 'no',
-				'description' => __('Allow users to select a specific user when uploading', 'docmanager'),
-			)
-		);
         
         $this->add_control(
             'show_visibility_field',
@@ -186,7 +255,6 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
                 'label' => __('Show Visibility Field to Users', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::SWITCHER,
                 'default' => 'no',
-                'description' => __('Allow users to choose visibility when uploading', 'docmanager'),
             )
         );
         
@@ -206,7 +274,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Title Field Label', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Document Title', 'docmanager'),
+                'default' => 'Titolo Documento',
                 'condition' => array('show_title_field' => 'yes'),
             )
         );
@@ -216,7 +284,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Description Field Label', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Description', 'docmanager'),
+                'default' => 'Descrizione',
                 'condition' => array('show_description_field' => 'yes'),
             )
         );
@@ -226,7 +294,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Category Field Label', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Category', 'docmanager'),
+                'default' => 'Categoria',
                 'condition' => array('show_category_field' => 'yes'),
             )
         );
@@ -236,7 +304,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Tags Field Label', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Tags', 'docmanager'),
+                'default' => 'Tag',
                 'condition' => array('show_tags_field' => 'yes'),
             )
         );
@@ -246,7 +314,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('File Field Label', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Select File', 'docmanager'),
+                'default' => 'Seleziona File',
             )
         );
         
@@ -255,7 +323,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Upload Button Text', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Upload Document', 'docmanager'),
+                'default' => 'Carica Documento',
             )
         );
         
@@ -264,7 +332,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Drop Zone Text', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Drag and drop your file here, or click to browse', 'docmanager'),
+                'default' => 'Trascina qui il file, o clicca per sfogliare',
             )
         );
         
@@ -273,7 +341,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('File Info Text', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Max size: %sMB. Allowed types: %s', 'docmanager'),
+                'default' => 'Dimensione massima: %sMB. Tipi consentiti: %s',
                 'description' => __('Use %s placeholders for size and types', 'docmanager'),
             )
         );
@@ -283,7 +351,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Login Required Message', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Please login to upload documents.', 'docmanager'),
+                'default' => 'Effettua il login per caricare documenti.',
             )
         );
         
@@ -292,7 +360,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Upload Success Message', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Document uploaded successfully!', 'docmanager'),
+                'default' => 'Documento caricato con successo!',
             )
         );
         
@@ -301,17 +369,26 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Upload Error Message', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Error uploading document. Please try again.', 'docmanager'),
+                'default' => 'Errore durante il caricamento. Riprova.',
             )
         );
         
         // Placeholders
         $this->add_control(
+            'placeholders_divider',
+            array(
+                'label' => __('Field Placeholders', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::HEADING,
+                'separator' => 'before',
+            )
+        );
+        
+        $this->add_control(
             'placeholder_title',
             array(
                 'label' => __('Title Placeholder', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Enter document title', 'docmanager'),
+                'default' => 'Inserisci il titolo del documento',
                 'condition' => array('show_title_field' => 'yes'),
             )
         );
@@ -321,7 +398,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Description Placeholder', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Enter description', 'docmanager'),
+                'default' => 'Inserisci una descrizione',
                 'condition' => array('show_description_field' => 'yes'),
             )
         );
@@ -331,7 +408,7 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Category Placeholder', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('e.g. Contracts, Reports, etc.', 'docmanager'),
+                'default' => 'es. Contratti, Report, ecc.',
                 'condition' => array('show_category_field' => 'yes'),
             )
         );
@@ -341,14 +418,19 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             array(
                 'label' => __('Tags Placeholder', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => __('Separate tags with commas', 'docmanager'),
+                'default' => 'Separa i tag con virgole',
                 'condition' => array('show_tags_field' => 'yes'),
             )
         );
         
         $this->end_controls_section();
         
-        // Style Section - Form
+        // Style sections
+        $this->register_style_controls();
+    }
+    
+    private function register_style_controls() {
+        // Form Style
         $this->start_controls_section(
             'form_style_section',
             array(
@@ -408,60 +490,9 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             )
         );
         
-        $this->add_group_control(
-            \Elementor\Group_Control_Box_Shadow::get_type(),
-            array(
-                'name' => 'form_box_shadow',
-                'selector' => '{{WRAPPER}} .docmanager-upload-container',
-            )
-        );
-        
         $this->end_controls_section();
         
-        // Style Section - Title
-        $this->start_controls_section(
-            'title_style_section',
-            array(
-                'label' => __('Title Style', 'docmanager'),
-                'tab' => \Elementor\Controls_Manager::TAB_STYLE,
-            )
-        );
-        
-        $this->add_control(
-            'title_color',
-            array(
-                'label' => __('Color', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::COLOR,
-                'default' => '#333333',
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-upload-container h3' => 'color: {{VALUE}}',
-                ),
-            )
-        );
-        
-        $this->add_group_control(
-            \Elementor\Group_Control_Typography::get_type(),
-            array(
-                'name' => 'title_typography',
-                'selector' => '{{WRAPPER}} .docmanager-upload-container h3',
-            )
-        );
-        
-        $this->add_responsive_control(
-            'title_margin',
-            array(
-                'label' => __('Margin', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::DIMENSIONS,
-                'size_units' => array('px', '%', 'em'),
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-upload-container h3' => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
-                ),
-            )
-        );
-        
-        $this->end_controls_section();
-        
-        // Style Section - Button
+        // Button Style
         $this->start_controls_section(
             'button_style_section',
             array(
@@ -506,43 +537,6 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             )
         );
         
-        $this->add_group_control(
-            \Elementor\Group_Control_Typography::get_type(),
-            array(
-                'name' => 'button_typography',
-                'selector' => '{{WRAPPER}} .docmanager-upload-submit',
-            )
-        );
-        
-        $this->add_control(
-            'button_border_radius',
-            array(
-                'label' => __('Border Radius', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::SLIDER,
-                'range' => array(
-                    'px' => array(
-                        'min' => 0,
-                        'max' => 50,
-                    ),
-                ),
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-upload-submit' => 'border-radius: {{SIZE}}{{UNIT}};',
-                ),
-            )
-        );
-        
-        $this->add_responsive_control(
-            'button_padding',
-            array(
-                'label' => __('Padding', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::DIMENSIONS,
-                'size_units' => array('px', '%', 'em'),
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-upload-submit' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
-                ),
-            )
-        );
-        
         $this->end_controls_section();
     }
     
@@ -560,6 +554,19 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
     protected function render() {
         $settings = $this->get_settings_for_display();
         
+        // Apply language preset if selected
+        if (!empty($settings['language_preset']) && $settings['language_preset'] !== 'custom') {
+            $presets = $this->get_language_presets();
+            if (isset($presets[$settings['language_preset']])) {
+                $preset = $presets[$settings['language_preset']];
+                foreach ($preset as $key => $value) {
+                    if (empty($settings[$key])) {
+                        $settings[$key] = $value;
+                    }
+                }
+            }
+        }
+        
         if (!is_user_logged_in()) {
             echo '<div class="docmanager-login-required">';
             echo '<p>' . esc_html($settings['label_login_required']) . '</p>';
@@ -567,11 +574,9 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             return;
         }
         
-        // Enqueue scripts
         wp_enqueue_script('docmanager-frontend');
         wp_enqueue_style('docmanager-frontend');
         
-        // Localizza script con impostazioni widget
         wp_localize_script('docmanager-frontend', 'docmanager_upload_widget', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('docmanager_upload_nonce'),
@@ -603,7 +608,6 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
                 <form class="docmanager-upload-form" enctype="multipart/form-data">
                     <?php wp_nonce_field('docmanager_upload_nonce', 'upload_nonce'); ?>
                     
-                    <!-- Hidden fields for visibility settings -->
                     <input type="hidden" name="document_visibility" value="<?php echo esc_attr($settings['document_visibility']); ?>">
                     <input type="hidden" name="specific_user_id" value="<?php echo esc_attr($settings['specific_user_id']); ?>">
                     <input type="hidden" name="specific_role" value="<?php echo esc_attr($settings['specific_role']); ?>">
@@ -650,24 +654,24 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
                         </select>
                     </div>
                     <?php endif; ?>
-					
-					<?php if ($settings['show_user_selector'] === 'yes'): ?>
-					<div class="docmanager-form-row">
-						<label for="doc_specific_user"><?php _e('Assign to User', 'docmanager'); ?></label>
-						<select id="doc_specific_user" name="doc_specific_user">
-							<option value=""><?php _e('Select a user...', 'docmanager'); ?></option>
-							<option value="me"><?php _e('Only Me', 'docmanager'); ?></option>
-							<option value="logged_users"><?php _e('All Logged Users', 'docmanager'); ?></option>
-							<option value="everyone"><?php _e('Everyone', 'docmanager'); ?></option>
-							<?php
-							$users = get_users();
-							foreach ($users as $user) {
-								echo '<option value="' . $user->ID . '">' . esc_html($user->display_name) . ' (' . $user->user_login . ')</option>';
-							}
-							?>
-						</select>
-					</div>
-					<?php endif; ?>
+                    
+                    <?php if ($settings['show_user_selector'] === 'yes'): ?>
+                    <div class="docmanager-form-row">
+                        <label for="doc_specific_user"><?php _e('Assign to User', 'docmanager'); ?></label>
+                        <select id="doc_specific_user" name="doc_specific_user">
+                            <option value=""><?php _e('Select a user...', 'docmanager'); ?></option>
+                            <option value="me"><?php _e('Only Me', 'docmanager'); ?></option>
+                            <option value="logged_users"><?php _e('All Logged Users', 'docmanager'); ?></option>
+                            <option value="everyone"><?php _e('Everyone', 'docmanager'); ?></option>
+                            <?php
+                            $users = get_users();
+                            foreach ($users as $user) {
+                                echo '<option value="' . $user->ID . '">' . esc_html($user->display_name) . ' (' . $user->user_login . ')</option>';
+                            }
+                            ?>
+                        </select>
+                    </div>
+                    <?php endif; ?>
                     
                     <div class="docmanager-form-row">
                         <label for="doc_file"><?php echo esc_html($settings['label_file_field']); ?> *</label>
@@ -705,6 +709,92 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
                 <div class="docmanager-upload-messages"></div>
             </div>
         </div>
+        
+        <?php
+        // JavaScript for language preset functionality
+        if (\Elementor\Plugin::$instance->editor->is_edit_mode()) {
+            $this->render_language_preset_script();
+        }
+    }
+    
+    private function render_language_preset_script() {
+        ?>
+        <script>
+        jQuery(document).ready(function($) {
+            // Language preset functionality for upload widget
+            elementor.hooks.addAction('panel/open_editor/widget/docmanager_upload', function(panel, model, view) {
+                // Listen for language preset changes
+                view.on('change', function() {
+                    var languagePreset = view.getElementSettingsModel().get('language_preset');
+                    if (languagePreset && languagePreset !== 'custom') {
+                        applyLanguagePreset(languagePreset, view);
+                    }
+                });
+                
+                // Listen for apply button click
+                view.$el.on('click', '[data-event="docmanager:apply_language_preset"]', function() {
+                    var languagePreset = view.getElementSettingsModel().get('language_preset');
+                    if (languagePreset && languagePreset !== 'custom') {
+                        applyLanguagePreset(languagePreset, view);
+                    }
+                });
+            });
+            
+            function applyLanguagePreset(language, view) {
+                var presets = {
+                    'it': {
+                        'label_title_field': 'Titolo Documento',
+                        'label_description_field': 'Descrizione',
+                        'label_category_field': 'Categoria',
+                        'label_tags_field': 'Tag',
+                        'label_file_field': 'Seleziona File',
+                        'label_upload_button': 'Carica Documento',
+                        'label_drop_zone': 'Trascina qui il file, o clicca per sfogliare',
+                        'label_file_info': 'Dimensione massima: %sMB. Tipi consentiti: %s',
+                        'label_login_required': 'Effettua il login per caricare documenti.',
+                        'label_upload_success': 'Documento caricato con successo!',
+                        'label_upload_error': 'Errore durante il caricamento. Riprova.',
+                        'placeholder_title': 'Inserisci il titolo del documento',
+                        'placeholder_description': 'Inserisci una descrizione',
+                        'placeholder_category': 'es. Contratti, Report, ecc.',
+                        'placeholder_tags': 'Separa i tag con virgole'
+                    },
+                    'en': {
+                        'label_title_field': 'Document Title',
+                        'label_description_field': 'Description',
+                        'label_category_field': 'Category',
+                        'label_tags_field': 'Tags',
+                        'label_file_field': 'Select File',
+                        'label_upload_button': 'Upload Document',
+                        'label_drop_zone': 'Drag and drop file here, or click to browse',
+                        'label_file_info': 'Max size: %sMB. Allowed types: %s',
+                        'label_login_required': 'Please login to upload documents.',
+                        'label_upload_success': 'Document uploaded successfully!',
+                        'label_upload_error': 'Error uploading document. Please try again.',
+                        'placeholder_title': 'Enter document title',
+                        'placeholder_description': 'Enter description',
+                        'placeholder_category': 'e.g. Contracts, Reports, etc.',
+                        'placeholder_tags': 'Separate tags with commas'
+                    }
+                };
+                
+                if (presets[language]) {
+                    var preset = presets[language];
+                    var settings = view.getElementSettingsModel();
+                    
+                    // Apply each preset value
+                    Object.keys(preset).forEach(function(key) {
+                        settings.set(key, preset[key]);
+                    });
+                    
+                    // Refresh the panel
+                    setTimeout(function() {
+                        elementor.getPanelView().refreshPanel();
+                    }, 100);
+                }
+            }
+        });
+        </script>
         <?php
     }
 }
