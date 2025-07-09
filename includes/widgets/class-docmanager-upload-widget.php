@@ -114,22 +114,225 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
         );
         
         $this->add_control(
-            'auto_assign_permission',
-            array(
-                'label' => __('Auto Assign to Current User', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::SWITCHER,
-                'default' => 'yes',
-                'description' => __('Automatically assign view permission to the uploading user', 'docmanager'),
-            )
-        );
-        
-        $this->add_control(
             'redirect_after_upload',
             array(
                 'label' => __('Redirect After Upload', 'docmanager'),
                 'type' => \Elementor\Controls_Manager::URL,
                 'placeholder' => __('https://your-site.com/thank-you', 'docmanager'),
                 'description' => __('Leave empty to stay on the same page', 'docmanager'),
+            )
+        );
+        
+        $this->end_controls_section();
+        
+        // Visibility Section
+        $this->start_controls_section(
+            'visibility_section',
+            array(
+                'label' => __('Document Visibility', 'docmanager'),
+                'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
+            )
+        );
+        
+        $this->add_control(
+            'document_visibility',
+            array(
+                'label' => __('Who can view this document?', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::SELECT,
+                'default' => 'uploader_only',
+                'options' => array(
+                    'everyone' => __('Everyone (Public)', 'docmanager'),
+                    'logged_users' => __('All Logged Users', 'docmanager'),
+                    'uploader_only' => __('Uploader Only', 'docmanager'),
+                    'specific_user' => __('Specific User', 'docmanager'),
+                    'specific_role' => __('Specific Role', 'docmanager'),
+                ),
+            )
+        );
+        
+        $this->add_control(
+            'specific_user_id',
+            array(
+                'label' => __('Specific User ID', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'condition' => array('document_visibility' => 'specific_user'),
+                'description' => __('Enter the user ID who can view this document', 'docmanager'),
+            )
+        );
+        
+        $this->add_control(
+            'specific_role',
+            array(
+                'label' => __('Specific Role', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::SELECT,
+                'options' => $this->get_user_roles(),
+                'condition' => array('document_visibility' => 'specific_role'),
+            )
+        );
+        
+        $this->add_control(
+            'show_visibility_field',
+            array(
+                'label' => __('Show Visibility Field to Users', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::SWITCHER,
+                'default' => 'no',
+                'description' => __('Allow users to choose visibility when uploading', 'docmanager'),
+            )
+        );
+        
+        $this->end_controls_section();
+        
+        // Custom Labels Section
+        $this->start_controls_section(
+            'labels_section',
+            array(
+                'label' => __('Custom Labels', 'docmanager'),
+                'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
+            )
+        );
+        
+        $this->add_control(
+            'label_title_field',
+            array(
+                'label' => __('Title Field Label', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Document Title', 'docmanager'),
+                'condition' => array('show_title_field' => 'yes'),
+            )
+        );
+        
+        $this->add_control(
+            'label_description_field',
+            array(
+                'label' => __('Description Field Label', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Description', 'docmanager'),
+                'condition' => array('show_description_field' => 'yes'),
+            )
+        );
+        
+        $this->add_control(
+            'label_category_field',
+            array(
+                'label' => __('Category Field Label', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Category', 'docmanager'),
+                'condition' => array('show_category_field' => 'yes'),
+            )
+        );
+        
+        $this->add_control(
+            'label_tags_field',
+            array(
+                'label' => __('Tags Field Label', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Tags', 'docmanager'),
+                'condition' => array('show_tags_field' => 'yes'),
+            )
+        );
+        
+        $this->add_control(
+            'label_file_field',
+            array(
+                'label' => __('File Field Label', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Select File', 'docmanager'),
+            )
+        );
+        
+        $this->add_control(
+            'label_upload_button',
+            array(
+                'label' => __('Upload Button Text', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Upload Document', 'docmanager'),
+            )
+        );
+        
+        $this->add_control(
+            'label_drop_zone',
+            array(
+                'label' => __('Drop Zone Text', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Drag and drop your file here, or click to browse', 'docmanager'),
+            )
+        );
+        
+        $this->add_control(
+            'label_file_info',
+            array(
+                'label' => __('File Info Text', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Max size: %sMB. Allowed types: %s', 'docmanager'),
+                'description' => __('Use %s placeholders for size and types', 'docmanager'),
+            )
+        );
+        
+        $this->add_control(
+            'label_login_required',
+            array(
+                'label' => __('Login Required Message', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Please login to upload documents.', 'docmanager'),
+            )
+        );
+        
+        $this->add_control(
+            'label_upload_success',
+            array(
+                'label' => __('Upload Success Message', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Document uploaded successfully!', 'docmanager'),
+            )
+        );
+        
+        $this->add_control(
+            'label_upload_error',
+            array(
+                'label' => __('Upload Error Message', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Error uploading document. Please try again.', 'docmanager'),
+            )
+        );
+        
+        // Placeholders
+        $this->add_control(
+            'placeholder_title',
+            array(
+                'label' => __('Title Placeholder', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Enter document title', 'docmanager'),
+                'condition' => array('show_title_field' => 'yes'),
+            )
+        );
+        
+        $this->add_control(
+            'placeholder_description',
+            array(
+                'label' => __('Description Placeholder', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Enter description', 'docmanager'),
+                'condition' => array('show_description_field' => 'yes'),
+            )
+        );
+        
+        $this->add_control(
+            'placeholder_category',
+            array(
+                'label' => __('Category Placeholder', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('e.g. Contracts, Reports, etc.', 'docmanager'),
+                'condition' => array('show_category_field' => 'yes'),
+            )
+        );
+        
+        $this->add_control(
+            'placeholder_tags',
+            array(
+                'label' => __('Tags Placeholder', 'docmanager'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => __('Separate tags with commas', 'docmanager'),
+                'condition' => array('show_tags_field' => 'yes'),
             )
         );
         
@@ -248,176 +451,6 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
         
         $this->end_controls_section();
         
-        // Style Section - Fields
-        $this->start_controls_section(
-            'fields_style_section',
-            array(
-                'label' => __('Fields Style', 'docmanager'),
-                'tab' => \Elementor\Controls_Manager::TAB_STYLE,
-            )
-        );
-        
-        $this->add_control(
-            'label_color',
-            array(
-                'label' => __('Label Color', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::COLOR,
-                'default' => '#333333',
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-form-row label' => 'color: {{VALUE}}',
-                ),
-            )
-        );
-        
-        $this->add_group_control(
-            \Elementor\Group_Control_Typography::get_type(),
-            array(
-                'name' => 'label_typography',
-                'selector' => '{{WRAPPER}} .docmanager-form-row label',
-            )
-        );
-        
-        $this->add_control(
-            'input_background_color',
-            array(
-                'label' => __('Input Background', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::COLOR,
-                'default' => '#ffffff',
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-form-row input[type="text"], {{WRAPPER}} .docmanager-form-row textarea' => 'background-color: {{VALUE}}',
-                ),
-            )
-        );
-        
-        $this->add_control(
-            'input_text_color',
-            array(
-                'label' => __('Input Text Color', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::COLOR,
-                'default' => '#333333',
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-form-row input[type="text"], {{WRAPPER}} .docmanager-form-row textarea' => 'color: {{VALUE}}',
-                ),
-            )
-        );
-        
-        $this->add_group_control(
-            \Elementor\Group_Control_Border::get_type(),
-            array(
-                'name' => 'input_border',
-                'selector' => '{{WRAPPER}} .docmanager-form-row input[type="text"], {{WRAPPER}} .docmanager-form-row textarea',
-            )
-        );
-        
-        $this->add_control(
-            'input_border_radius',
-            array(
-                'label' => __('Border Radius', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::SLIDER,
-                'range' => array(
-                    'px' => array(
-                        'min' => 0,
-                        'max' => 20,
-                    ),
-                ),
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-form-row input[type="text"], {{WRAPPER}} .docmanager-form-row textarea' => 'border-radius: {{SIZE}}{{UNIT}};',
-                ),
-            )
-        );
-        
-        $this->add_responsive_control(
-            'input_padding',
-            array(
-                'label' => __('Input Padding', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::DIMENSIONS,
-                'size_units' => array('px', '%', 'em'),
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-form-row input[type="text"], {{WRAPPER}} .docmanager-form-row textarea' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
-                ),
-            )
-        );
-        
-        $this->end_controls_section();
-        
-        // Style Section - Drop Zone
-        $this->start_controls_section(
-            'dropzone_style_section',
-            array(
-                'label' => __('Drop Zone Style', 'docmanager'),
-                'tab' => \Elementor\Controls_Manager::TAB_STYLE,
-            )
-        );
-        
-        $this->add_control(
-            'dropzone_background_color',
-            array(
-                'label' => __('Background Color', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::COLOR,
-                'default' => '#fafafa',
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-drop-zone' => 'background-color: {{VALUE}}',
-                ),
-            )
-        );
-        
-        $this->add_control(
-            'dropzone_border_color',
-            array(
-                'label' => __('Border Color', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::COLOR,
-                'default' => '#dddddd',
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-drop-zone' => 'border-color: {{VALUE}}',
-                ),
-            )
-        );
-        
-        $this->add_control(
-            'dropzone_hover_background',
-            array(
-                'label' => __('Hover Background', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::COLOR,
-                'default' => '#f0f8ff',
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-drop-zone:hover, {{WRAPPER}} .docmanager-drop-zone.dragover' => 'background-color: {{VALUE}}',
-                ),
-            )
-        );
-        
-        $this->add_control(
-            'dropzone_hover_border',
-            array(
-                'label' => __('Hover Border Color', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::COLOR,
-                'default' => '#0073aa',
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-drop-zone:hover, {{WRAPPER}} .docmanager-drop-zone.dragover' => 'border-color: {{VALUE}}',
-                ),
-            )
-        );
-        
-        $this->add_responsive_control(
-            'dropzone_padding',
-            array(
-                'label' => __('Padding', 'docmanager'),
-                'type' => \Elementor\Controls_Manager::DIMENSIONS,
-                'size_units' => array('px', '%', 'em'),
-                'default' => array(
-                    'top' => '40',
-                    'right' => '20',
-                    'bottom' => '40',
-                    'left' => '20',
-                    'unit' => 'px',
-                ),
-                'selectors' => array(
-                    '{{WRAPPER}} .docmanager-drop-zone' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
-                ),
-            )
-        );
-        
-        $this->end_controls_section();
-        
         // Style Section - Button
         $this->start_controls_section(
             'button_style_section',
@@ -503,12 +536,23 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
         $this->end_controls_section();
     }
     
+    private function get_user_roles() {
+        $roles = wp_roles()->roles;
+        $role_options = array();
+        
+        foreach ($roles as $role_key => $role) {
+            $role_options[$role_key] = $role['name'];
+        }
+        
+        return $role_options;
+    }
+    
     protected function render() {
         $settings = $this->get_settings_for_display();
         
         if (!is_user_logged_in()) {
             echo '<div class="docmanager-login-required">';
-            echo '<p>' . __('Please login to upload documents.', 'docmanager') . '</p>';
+            echo '<p>' . esc_html($settings['label_login_required']) . '</p>';
             echo '</div>';
             return;
         }
@@ -523,7 +567,14 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
             'nonce' => wp_create_nonce('docmanager_upload_nonce'),
             'max_size' => $settings['max_file_size'] * 1024 * 1024,
             'allowed_types' => explode(',', str_replace(' ', '', $settings['allowed_files'])),
-            'redirect_url' => !empty($settings['redirect_after_upload']['url']) ? $settings['redirect_after_upload']['url'] : ''
+            'redirect_url' => !empty($settings['redirect_after_upload']['url']) ? $settings['redirect_after_upload']['url'] : '',
+            'visibility' => $settings['document_visibility'],
+            'specific_user' => $settings['specific_user_id'] ?? '',
+            'specific_role' => $settings['specific_role'] ?? '',
+            'messages' => array(
+                'upload_success' => $settings['label_upload_success'],
+                'upload_error' => $settings['label_upload_error']
+            )
         ));
         ?>
         
@@ -542,47 +593,65 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
                 <form class="docmanager-upload-form" enctype="multipart/form-data">
                     <?php wp_nonce_field('docmanager_upload_nonce', 'upload_nonce'); ?>
                     
+                    <!-- Hidden fields for visibility settings -->
+                    <input type="hidden" name="document_visibility" value="<?php echo esc_attr($settings['document_visibility']); ?>">
+                    <input type="hidden" name="specific_user_id" value="<?php echo esc_attr($settings['specific_user_id']); ?>">
+                    <input type="hidden" name="specific_role" value="<?php echo esc_attr($settings['specific_role']); ?>">
+                    
                     <?php if ($settings['show_title_field'] === 'yes'): ?>
                     <div class="docmanager-form-row">
-                        <label for="doc_title"><?php _e('Document Title', 'docmanager'); ?> *</label>
-                        <input type="text" id="doc_title" name="doc_title" required>
+                        <label for="doc_title"><?php echo esc_html($settings['label_title_field']); ?> *</label>
+                        <input type="text" id="doc_title" name="doc_title" 
+                               placeholder="<?php echo esc_attr($settings['placeholder_title']); ?>" required>
                     </div>
                     <?php endif; ?>
                     
                     <?php if ($settings['show_description_field'] === 'yes'): ?>
                     <div class="docmanager-form-row">
-                        <label for="doc_description"><?php _e('Description', 'docmanager'); ?></label>
-                        <textarea id="doc_description" name="doc_description" rows="3"></textarea>
+                        <label for="doc_description"><?php echo esc_html($settings['label_description_field']); ?></label>
+                        <textarea id="doc_description" name="doc_description" rows="3"
+                                  placeholder="<?php echo esc_attr($settings['placeholder_description']); ?>"></textarea>
                     </div>
                     <?php endif; ?>
                     
                     <?php if ($settings['show_category_field'] === 'yes'): ?>
                     <div class="docmanager-form-row">
-                        <label for="doc_category"><?php _e('Category', 'docmanager'); ?></label>
+                        <label for="doc_category"><?php echo esc_html($settings['label_category_field']); ?></label>
                         <input type="text" id="doc_category" name="doc_category" 
-                               placeholder="<?php _e('e.g. Contracts, Reports, etc.', 'docmanager'); ?>">
+                               placeholder="<?php echo esc_attr($settings['placeholder_category']); ?>">
                     </div>
                     <?php endif; ?>
                     
                     <?php if ($settings['show_tags_field'] === 'yes'): ?>
                     <div class="docmanager-form-row">
-                        <label for="doc_tags"><?php _e('Tags', 'docmanager'); ?></label>
+                        <label for="doc_tags"><?php echo esc_html($settings['label_tags_field']); ?></label>
                         <input type="text" id="doc_tags" name="doc_tags" 
-                               placeholder="<?php _e('Separate tags with commas', 'docmanager'); ?>">
+                               placeholder="<?php echo esc_attr($settings['placeholder_tags']); ?>">
+                    </div>
+                    <?php endif; ?>
+                    
+                    <?php if ($settings['show_visibility_field'] === 'yes'): ?>
+                    <div class="docmanager-form-row">
+                        <label for="doc_visibility"><?php _e('Document Visibility', 'docmanager'); ?></label>
+                        <select id="doc_visibility" name="doc_visibility">
+                            <option value="uploader_only"><?php _e('Only Me', 'docmanager'); ?></option>
+                            <option value="logged_users"><?php _e('All Logged Users', 'docmanager'); ?></option>
+                            <option value="everyone"><?php _e('Everyone', 'docmanager'); ?></option>
+                        </select>
                     </div>
                     <?php endif; ?>
                     
                     <div class="docmanager-form-row">
-                        <label for="doc_file"><?php _e('Select File', 'docmanager'); ?> *</label>
+                        <label for="doc_file"><?php echo esc_html($settings['label_file_field']); ?> *</label>
                         <div class="docmanager-file-upload-area">
                             <input type="file" id="doc_file" name="doc_file" required 
                                    accept=".<?php echo str_replace(',', ',.', $settings['allowed_files']); ?>">
                             <div class="docmanager-drop-zone">
                                 <span class="docmanager-drop-icon">📁</span>
-                                <p><?php _e('Drag and drop your file here, or click to browse', 'docmanager'); ?></p>
+                                <p><?php echo esc_html($settings['label_drop_zone']); ?></p>
                                 <small>
                                     <?php printf(
-                                        __('Max size: %sMB. Allowed types: %s', 'docmanager'), 
+                                        $settings['label_file_info'], 
                                         $settings['max_file_size'], 
                                         $settings['allowed_files']
                                     ); ?>
@@ -600,86 +669,12 @@ class DocManager_Upload_Widget extends \Elementor\Widget_Base {
                     
                     <div class="docmanager-form-row">
                         <button type="submit" class="docmanager-upload-submit">
-                            <?php _e('Upload Document', 'docmanager'); ?>
+                            <?php echo esc_html($settings['label_upload_button']); ?>
                         </button>
                     </div>
                 </form>
                 
                 <div class="docmanager-upload-messages"></div>
-            </div>
-        </div>
-        <?php
-    }
-    
-    protected function content_template() {
-        ?>
-        <#
-        var allowedFiles = settings.allowed_files || 'pdf,doc,docx,xls,xlsx,jpg,jpeg,png';
-        var maxSize = settings.max_file_size || 10;
-        #>
-        
-        <div class="docmanager-upload-widget elementor-widget-docmanager-upload">
-            <div class="docmanager-upload-container">
-                <# if (settings.upload_title) { #>
-                    <h3>{{{ settings.upload_title }}}</h3>
-                <# } #>
-                
-                <# if (settings.upload_description) { #>
-                    <div class="docmanager-upload-description">
-                        <p>{{{ settings.upload_description }}}</p>
-                    </div>
-                <# } #>
-                
-                <form class="docmanager-upload-form">
-                    
-                    <# if (settings.show_title_field === 'yes') { #>
-                    <div class="docmanager-form-row">
-                        <label><?php _e('Document Title', 'docmanager'); ?> *</label>
-                        <input type="text" placeholder="<?php _e('Enter document title', 'docmanager'); ?>">
-                    </div>
-                    <# } #>
-                    
-                    <# if (settings.show_description_field === 'yes') { #>
-                    <div class="docmanager-form-row">
-                        <label><?php _e('Description', 'docmanager'); ?></label>
-                        <textarea rows="3" placeholder="<?php _e('Enter description', 'docmanager'); ?>"></textarea>
-                    </div>
-                    <# } #>
-                    
-                    <# if (settings.show_category_field === 'yes') { #>
-                    <div class="docmanager-form-row">
-                        <label><?php _e('Category', 'docmanager'); ?></label>
-                        <input type="text" placeholder="<?php _e('e.g. Contracts, Reports, etc.', 'docmanager'); ?>">
-                    </div>
-                    <# } #>
-                    
-                    <# if (settings.show_tags_field === 'yes') { #>
-                    <div class="docmanager-form-row">
-                        <label><?php _e('Tags', 'docmanager'); ?></label>
-                        <input type="text" placeholder="<?php _e('Separate tags with commas', 'docmanager'); ?>">
-                    </div>
-                    <# } #>
-                    
-                    <div class="docmanager-form-row">
-                        <label><?php _e('Select File', 'docmanager'); ?> *</label>
-                        <div class="docmanager-file-upload-area">
-                            <div class="docmanager-drop-zone">
-                                <span class="docmanager-drop-icon">📁</span>
-                                <p><?php _e('Drag and drop your file here, or click to browse', 'docmanager'); ?></p>
-                                <small>
-                                    <?php _e('Max size:', 'docmanager'); ?> {{{ maxSize }}}MB. 
-                                    <?php _e('Allowed types:', 'docmanager'); ?> {{{ allowedFiles }}}
-                                </small>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="docmanager-form-row">
-                        <button type="submit" class="docmanager-upload-submit">
-                            <?php _e('Upload Document', 'docmanager'); ?>
-                        </button>
-                    </div>
-                </form>
             </div>
         </div>
         <?php

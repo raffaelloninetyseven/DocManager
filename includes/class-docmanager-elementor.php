@@ -24,6 +24,7 @@ class DocManager_Elementor {
         // Verifica che i file widget esistano prima di includerli
         $documents_widget_file = DOCMANAGER_PLUGIN_PATH . 'includes/widgets/class-docmanager-documents-widget.php';
         $upload_widget_file = DOCMANAGER_PLUGIN_PATH . 'includes/widgets/class-docmanager-upload-widget.php';
+        $manage_widget_file = DOCMANAGER_PLUGIN_PATH . 'includes/widgets/class-docmanager-manage-widget.php';
         
         if (file_exists($documents_widget_file)) {
             require_once $documents_widget_file;
@@ -33,6 +34,11 @@ class DocManager_Elementor {
         if (file_exists($upload_widget_file)) {
             require_once $upload_widget_file;
             \Elementor\Plugin::instance()->widgets_manager->register_widget_type(new DocManager_Upload_Widget());
+        }
+        
+        if (file_exists($manage_widget_file)) {
+            require_once $manage_widget_file;
+            \Elementor\Plugin::instance()->widgets_manager->register_widget_type(new DocManager_Manage_Widget());
         }
     }
 }
