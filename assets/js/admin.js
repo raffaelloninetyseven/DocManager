@@ -1,598 +1,526 @@
-jQuery(document).ready(function($) {
-    
-    // Handle document deletion
-    $('.button-link-delete').on('click', function(e) {
-        e.preventDefault();
-        
-        if (!confirm('Sei sicuro di voler eliminare questo documento?')) {
-            return;
-        }
-        
-        const docId = $(this).data('doc-id');
-        const row = $(this).closest('tr');
-        
-        $.ajax({
-            url: docmanager_ajax.ajax_url,
-            type: 'POST',
-            data: {
-                action: 'docmanager_delete_document',
-                document_id: docId,
-                nonce: docmanager_ajax.nonce
-            },
-            success: function(response) {
-                let data;
-                try {
-                    data = typeof response === 'string' ? JSON.parse(response) : response;
-                } catch (e) {
-                    alert('Errore nel parsing della risposta');
-                    return;
-                }
-                
-                if (data.success) {
-                    row.fadeOut(300, function() {
-                        $(this).remove();
-                    });
-                    showNotice('success', 'Documento eliminato con successo');
-                } else {
-                    alert('Errore: ' + data.message);
-                }
-            },
-            error: function() {
-                alert('Errore di connessione');
-            }
-        });
-    });
-    
-    // Handle bulk actions
-    $('#bulk-action-form').on('submit', function(e) {
-        const action = $('#bulk-action-selector-top').val();
-        const selectedDocs = $('input[name="document[]"]:checked');
-        
-        if (action === '-1') {
-            e.preventDefault();
-            alert('Seleziona un\'azione');
-            return;
-        }
-        
-        if (selectedDocs.length === 0) {
-            e.preventDefault();
-            alert('Seleziona almeno un documento');
-            return;
-        }
-        
-        if (action === 'delete') {
-            if (!confirm(`Sei sicuro di voler eliminare ${selectedDocs.length} documenti?`)) {
-                e.preventDefault();
-                return;
-            }
-        }
-    });
-    
-    // Select all checkbox functionality
-    $('#cb-select-all-1, #cb-select-all-2').on('change', function() {
-        const isChecked = $(this).is(':checked');
-        $('input[name="document[]"]').prop('checked', isChecked);
-    });
-    
-    // Individual checkbox change
-    $('input[name="document[]"]').on('change', function() {
-        const totalCheckboxes = $('input[name="document[]"]').length;
-        const checkedCheckboxes = $('input[name="document[]"]:checked').length;
-        
-        $('#cb-select-all-1, #cb-select-all-2').prop('checked', totalCheckboxes === checkedCheckboxes);
-    });
-    
-    // File upload validation
-    $('#doc_file').on('change', function() {
-        const file = this.files[0];
-        if (file) {
-            validateAdminFile(file);
-        }
-    });
-    
-    // Settings form enhancements
-    $('.docmanager-settings-form').on('submit', function() {
-        showLoadingSpinner();
-    });
-    
-    // Permissions management
-    $('.add-permission-btn').on('click', function() {
-        showPermissionModal();
-    });
-    
-    $('.remove-permission').on('click', function(e) {
-        e.preventDefault();
-        
-        if (!confirm('Rimuovere questo permesso?')) {
-            return;
-        }
-        
-        const permissionId = $(this).data('permission-id');
-        
-        $.ajax({
-            url: docmanager_ajax.ajax_url,
-            type: 'POST',
-            data: {
-                action: 'docmanager_remove_permission',
-                permission_id: permissionId,
-                nonce: docmanager_ajax.nonce
-            },
-            success: function(response) {
-                let data;
-                try {
-                    data = typeof response === 'string' ? JSON.parse(response) : response;
-                } catch (e) {
-                    alert('Errore nel parsing della risposta');
-                    return;
-                }
-                
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('Errore: ' + data.message);
-                }
-            },
-            error: function() {
-                alert('Errore di connessione');
-            }
-        });
-    });
-    
-    // Document preview functionality
-    $('.preview-document').on('click', function(e) {
-        e.preventDefault();
-        
-        const documentUrl = $(this).data('document-url');
-        const documentTitle = $(this).data('document-title');
-        
-        showDocumentPreview(documentUrl, documentTitle);
-    });
-    
-    // Search and filter functionality
-    $('#document-search').on('input', function() {
-        const searchTerm = $(this).val().toLowerCase();
-        filterDocuments(searchTerm);
-    });
-    
-    $('#category-filter').on('change', function() {
-        const category = $(this).val();
-        filterByCategory(category);
-    });
-    
-    // Analytics and stats
-    if ($('.docmanager-stats').length) {
-        loadDashboardStats();
-    }
-    
-    function validateAdminFile(file) {
-        const maxSize = 50 * 1024 * 1024; // 50MB per admin
-        const allowedTypes = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'jpg', 'jpeg', 'png', 'gif'];
-        
-        if (file.size > maxSize) {
-            alert('File troppo grande. Dimensione massima: 50MB');
-            $('#doc_file').val('');
-            return false;
-        }
-        
-        const fileExtension = file.name.split('.').pop().toLowerCase();
-        if (!allowedTypes.includes(fileExtension)) {
-            alert(`Tipo di file non consentito. Tipi permessi: ${allowedTypes.join(', ')}`);
-            $('#doc_file').val('');
-            return false;
-        }
-        
-        showFileInfo(file);
-        return true;
-    }
-    
-    function showFileInfo(file) {
-        const fileInfo = `
-            <div class="file-info">
-                <strong>File selezionato:</strong> ${file.name}<br>
-                <strong>Dimensione:</strong> ${formatFileSize(file.size)}<br>
-                <strong>Tipo:</strong> ${file.type}
-            </div>
-        `;
-        
-        $('.file-info').remove();
-        $('#doc_file').after(fileInfo);
-    }
-    
-    function filterDocuments(searchTerm) {
-        $('tbody tr').each(function() {
-            const rowText = $(this).text().toLowerCase();
-            $(this).toggle(rowText.includes(searchTerm));
-        });
-        
-        updateRowCount();
-    }
-    
-    function filterByCategory(category) {
-        if (category === '') {
-            $('tbody tr').show();
-        } else {
-            $('tbody tr').each(function() {
-                const rowCategory = $(this).find('.category-cell').text();
-                $(this).toggle(rowCategory === category);
-            });
-        }
-        
-        updateRowCount();
-    }
-    
-    function updateRowCount() {
-        const visibleRows = $('tbody tr:visible').length;
-        $('.displaying-num').text(`${visibleRows} elementi`);
-    }
-    
-    function showNotice(type, message) {
-        const noticeClass = type === 'success' ? 'notice-success' : 'notice-error';
-        const notice = $(`
-            <div class="notice ${noticeClass} is-dismissible">
-                <p>${message}</p>
-                <button type="button" class="notice-dismiss">
-                    <span class="screen-reader-text">Chiudi questo avviso.</span>
-                </button>
-            </div>
-        `);
-        
-        $('.wrap h1').after(notice);
-        
-        // Auto-hide dopo 5 secondi
-        setTimeout(function() {
-            notice.fadeOut();
-        }, 5000);
-        
-        // Handle dismiss button
-        notice.find('.notice-dismiss').on('click', function() {
-            notice.fadeOut();
-        });
-    }
-    
-    function showLoadingSpinner() {
-        $('.submit .button-primary').prop('disabled', true).text('Salvataggio...');
-    }
-    
-    function showPermissionModal() {
-        // Implementazione modale per aggiungere permessi
-        const modal = $(`
-            <div class="docmanager-modal-overlay">
-                <div class="docmanager-modal">
-                    <div class="docmanager-modal-header">
-                        <h3>Aggiungi Permesso</h3>
-                        <button class="modal-close">&times;</button>
-                    </div>
-                    <div class="docmanager-modal-body">
-                        <form id="add-permission-form">
-                            <table class="form-table">
-                                <tr>
-                                    <th><label for="permission-type">Tipo Permesso</label></th>
-                                    <td>
-                                        <select id="permission-type" name="permission_type">
-                                            <option value="user">Utente Specifico</option>
-                                            <option value="role">Ruolo</option>
-                                            <option value="group">Gruppo</option>
-                                        </select>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th><label for="permission-target">Assegna a</label></th>
-                                    <td>
-                                        <select id="permission-target" name="permission_target">
-                                            <option value="">Seleziona...</option>
-                                        </select>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th><label for="permission-level">Livello Permesso</label></th>
-                                    <td>
-                                        <select id="permission-level" name="permission_level">
-                                            <option value="view">Visualizzazione</option>
-                                            <option value="download">Download</option>
-                                            <option value="manage">Gestione</option>
-                                        </select>
-                                    </td>
-                                </tr>
-                            </table>
-                            <p class="submit">
-                                <button type="submit" class="button-primary">Aggiungi Permesso</button>
-                                <button type="button" class="button modal-cancel">Annulla</button>
-                            </p>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        `);
-        
-        $('body').append(modal);
-        
-        // Handle modal close
-        modal.find('.modal-close, .modal-cancel').on('click', function() {
-            modal.remove();
-        });
-        
-        // Handle permission type change
-        modal.find('#permission-type').on('change', function() {
-            updatePermissionTargets($(this).val());
-        });
-        
-        // Handle form submission
-        modal.find('#add-permission-form').on('submit', function(e) {
-            e.preventDefault();
-            // Implementazione salvataggio permesso
-            modal.remove();
-        });
-    }
-    
-    function updatePermissionTargets(type) {
-        const targetSelect = $('#permission-target');
-        targetSelect.empty().append('<option value="">Caricamento...</option>');
-        
-        $.ajax({
-            url: docmanager_ajax.ajax_url,
-            type: 'POST',
-            data: {
-                action: 'docmanager_get_permission_targets',
-                type: type,
-                nonce: docmanager_ajax.nonce
-            },
-            success: function(response) {
-                let data;
-                try {
-                    data = typeof response === 'string' ? JSON.parse(response) : response;
-                } catch (e) {
-                    targetSelect.html('<option value="">Errore caricamento</option>');
-                    return;
-                }
-                
-                if (data.success) {
-                    targetSelect.empty().append('<option value="">Seleziona...</option>');
-                    data.targets.forEach(function(target) {
-                        targetSelect.append(`<option value="${target.value}">${target.label}</option>`);
-                    });
-                } else {
-                    targetSelect.html('<option value="">Errore caricamento</option>');
-                }
-            },
-            error: function() {
-                targetSelect.html('<option value="">Errore connessione</option>');
-            }
-        });
-    }
-    
-    function showDocumentPreview(url, title) {
-        const previewModal = $(`
-            <div class="docmanager-preview-overlay">
-                <div class="docmanager-preview-modal">
-                    <div class="docmanager-preview-header">
-                        <h3>${title}</h3>
-                        <button class="preview-close">&times;</button>
-                    </div>
-                    <div class="docmanager-preview-body">
-                        <iframe src="${url}" width="100%" height="600px" frameborder="0"></iframe>
-                    </div>
-                </div>
-            </div>
-        `);
-        
-        $('body').append(previewModal);
-        
-        previewModal.find('.preview-close').on('click', function() {
-            previewModal.remove();
-        });
-        
-        // Close on overlay click
-        previewModal.on('click', function(e) {
-            if (e.target === this) {
-                previewModal.remove();
-            }
-        });
-    }
-    
-    function loadDashboardStats() {
-        $.ajax({
-            url: docmanager_ajax.ajax_url,
-            type: 'POST',
-            data: {
-                action: 'docmanager_get_stats',
-                nonce: docmanager_ajax.nonce
-            },
-            success: function(response) {
-                let data;
-                try {
-                    data = typeof response === 'string' ? JSON.parse(response) : response;
-                } catch (e) {
-                    console.error('Errore parsing stats');
-                    return;
-                }
-                
-                if (data.success) {
-                    updateStatsDisplay(data.stats);
-                }
-            },
-            error: function() {
-                console.error('Errore caricamento statistiche');
-            }
-        });
-    }
-    
-    function updateStatsDisplay(stats) {
-        $('.total-documents .stat-number').text(stats.total_documents || 0);
-        $('.total-downloads .stat-number').text(stats.total_downloads || 0);
-        $('.active-users .stat-number').text(stats.active_users || 0);
-        $('.storage-used .stat-number').text(formatFileSize(stats.storage_used || 0));
-        
-        // Update recent activity
-        if (stats.recent_activity) {
-            const activityList = $('.recent-activity-list');
-            activityList.empty();
-            
-            stats.recent_activity.forEach(function(activity) {
-                activityList.append(`
-                    <li class="activity-item">
-                        <span class="activity-icon">${getActivityIcon(activity.action)}</span>
-                        <span class="activity-text">${activity.description}</span>
-                        <span class="activity-time">${formatTimeAgo(activity.timestamp)}</span>
-                    </li>
-                `);
-            });
-        }
-    }
-    
-    function getActivityIcon(action) {
-        const icons = {
-            'upload': '📤',
-            'download': '📥',
-            'delete': '🗑️',
-            'view': '👁️',
-            'share': '🔗'
-        };
-        return icons[action] || '📋';
-    }
-    
-    function formatTimeAgo(timestamp) {
-        const now = new Date();
-        const time = new Date(timestamp);
-        const diffInSeconds = Math.floor((now - time) / 1000);
-        
-        if (diffInSeconds < 60) {
-            return 'ora';
-        } else if (diffInSeconds < 3600) {
-            return Math.floor(diffInSeconds / 60) + ' min fa';
-        } else if (diffInSeconds < 86400) {
-            return Math.floor(diffInSeconds / 3600) + ' ore fa';
-        } else {
-            return Math.floor(diffInSeconds / 86400) + ' giorni fa';
-        }
-    }
-    
-    // Utility functions
-    function formatFileSize(bytes) {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    }
-    
-    // Enhanced table sorting
-    $('.column-header.sortable').on('click', function() {
-        const column = $(this).data('column');
-        const direction = $(this).hasClass('asc') ? 'desc' : 'asc';
-        
-        // Remove all sorting classes
-        $('.column-header').removeClass('asc desc');
-        
-        // Add current sorting class
-        $(this).addClass(direction);
-        
-        sortTable(column, direction);
-    });
-    
-    function sortTable(column, direction) {
-        const table = $('.wp-list-table tbody');
-        const rows = table.find('tr').toArray();
-        
-        rows.sort(function(a, b) {
-            const aValue = $(a).find(`[data-column="${column}"]`).text().trim();
-            const bValue = $(b).find(`[data-column="${column}"]`).text().trim();
-            
-            // Handle different data types
-            if (column === 'file_size') {
-                const aSize = parseFileSize(aValue);
-                const bSize = parseFileSize(bValue);
-                return direction === 'asc' ? aSize - bSize : bSize - aSize;
-            } else if (column === 'upload_date') {
-                const aDate = new Date(aValue);
-                const bDate = new Date(bValue);
-                return direction === 'asc' ? aDate - bDate : bDate - aDate;
-            } else {
-                return direction === 'asc' ? 
-                    aValue.localeCompare(bValue) : 
-                    bValue.localeCompare(aValue);
-            }
-        });
-        
-        table.empty().append(rows);
-    }
-    
-    function parseFileSize(sizeString) {
-        const units = {
-            'B': 1,
-            'KB': 1024,
-            'MB': 1024 * 1024,
-            'GB': 1024 * 1024 * 1024
-        };
-        
-        const match = sizeString.match(/^([\d.]+)\s*(\w+)$/);
-        if (!match) return 0;
-        
-        const value = parseFloat(match[1]);
-        const unit = match[2];
-        
-        return value * (units[unit] || 1);
-    }
-    
-    // Auto-save functionality for settings
-    $('.docmanager-settings input, .docmanager-settings select, .docmanager-settings textarea').on('change', function() {
-        const setting = $(this).attr('name');
-        const value = $(this).val();
-        
-        // Visual feedback
-        $(this).addClass('saving');
-        
-        $.ajax({
-            url: docmanager_ajax.ajax_url,
-            type: 'POST',
-            data: {
-                action: 'docmanager_auto_save_setting',
-                setting: setting,
-                value: value,
-                nonce: docmanager_ajax.nonce
-            },
-            success: function(response) {
-                $(this).removeClass('saving').addClass('saved');
-                setTimeout(() => {
-                    $(this).removeClass('saved');
-                }, 2000);
-            }.bind(this),
-            error: function() {
-                $(this).removeClass('saving').addClass('error');
-                setTimeout(() => {
-                    $(this).removeClass('error');
-                }, 2000);
-            }.bind(this)
-        });
-    });
-    
-    // Keyboard shortcuts
-    $(document).on('keydown', function(e) {
-        // Ctrl+S per salvare
-        if (e.ctrlKey && e.key === 's') {
-            e.preventDefault();
-            $('.button-primary[name="save_settings"]').click();
-        }
-        
-        // Esc per chiudere modali
-        if (e.key === 'Escape') {
-            $('.docmanager-modal-overlay, .docmanager-preview-overlay').remove();
-        }
-    });
-    
-    // Tooltip initialization
-    $('[data-tooltip]').on('mouseenter', function() {
-        const tooltip = $(this).data('tooltip');
-        const tooltipEl = $(`<div class="docmanager-tooltip">${tooltip}</div>`);
-        
-        $('body').append(tooltipEl);
-        
-        const rect = this.getBoundingClientRect();
-        tooltipEl.css({
-            top: rect.top - tooltipEl.outerHeight() - 5,
-            left: rect.left + (rect.width / 2) - (tooltipEl.outerWidth() / 2)
-        });
-    }).on('mouseleave', function() {
-        $('.docmanager-tooltip').remove();
-    });
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.storage.local.set({
+    isExtensionEnabled: true,
+    authStatus: 'pending',
+    folderSizeCache: {},
+    currentUser: null,
+    lastCacheCleanup: Date.now()
+  });
+});
 
+let lastTokenRequest = 0;
+const TOKEN_COOLDOWN = 1000;
+
+function getAuthToken(interactive = false, prompt = false) {
+  return new Promise((resolve, reject) => {
+    const now = Date.now();
+    
+    if (now - lastTokenRequest < TOKEN_COOLDOWN && !interactive) {
+      reject(new Error('Troppe richieste di token'));
+      return;
+    }
+    
+    lastTokenRequest = now;
+    
+    const authOptions = { 
+      interactive: interactive,
+      scopes: ['https://www.googleapis.com/auth/drive.readonly']
+    };
+    
+    if (prompt && interactive) {
+      chrome.identity.getAuthToken({ interactive: false }, (existingToken) => {
+        if (existingToken) {
+          chrome.identity.removeCachedAuthToken({ token: existingToken }, () => {
+            requestTokenWithPrompt();
+          });
+        } else {
+          requestTokenWithPrompt();
+        }
+      });
+    } else {
+      chrome.identity.getAuthToken(authOptions, handleTokenResponse);
+    }
+    
+    function requestTokenWithPrompt() {
+      chrome.identity.getAuthToken({ 
+        interactive: true,
+        scopes: ['https://www.googleapis.com/auth/drive.readonly']
+      }, handleTokenResponse);
+    }
+    
+    function handleTokenResponse(token) {
+      if (chrome.runtime.lastError) {
+        console.error('Errore di autenticazione:', chrome.runtime.lastError);
+        chrome.storage.local.set({ authStatus: 'unauthenticated', currentUser: null });
+        reject(chrome.runtime.lastError);
+      } else if (!token) {
+        console.error('Token non ricevuto');
+        chrome.storage.local.set({ authStatus: 'unauthenticated', currentUser: null });
+        reject(new Error('Token non ricevuto'));
+      } else {
+        getUserInfo(token).then(userInfo => {
+          chrome.storage.local.get('currentUser', (data) => {
+            if (data.currentUser && data.currentUser !== userInfo.emailAddress) {
+              clearFolderSizeCache(data.currentUser);
+            }
+            
+            chrome.storage.local.set({ 
+              authStatus: 'authenticated', 
+              currentUser: userInfo.emailAddress 
+            });
+            
+            resolve(token);
+          });
+        }).catch(error => {
+          console.error('Errore verifica utente:', error);
+          chrome.storage.local.set({ authStatus: 'authenticated' });
+          resolve(token);
+        });
+      }
+    }
+  });
+}
+
+async function revokeTokenAndLogout() {
+  return new Promise((resolve) => {
+    chrome.identity.getAuthToken({ interactive: false }, async (token) => {
+      if (token) {
+        try {
+          await fetch(`https://oauth2.googleapis.com/revoke?token=${token}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+          });
+        } catch (error) {
+          console.error('Errore revoca token:', error);
+        }
+        
+        chrome.identity.removeCachedAuthToken({ token: token }, () => {
+        });
+      }
+      
+      chrome.storage.local.get('currentUser', (data) => {
+        clearFolderSizeCache(data.currentUser).then(() => {
+          chrome.storage.local.set({ 
+            authStatus: 'unauthenticated', 
+            currentUser: null,
+            isExtensionEnabled: true
+          });
+          resolve({ success: true });
+        });
+      });
+    });
+  });
+}
+
+async function getUserInfo(token) {
+  const response = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  
+  const data = await response.json();
+  return data.user;
+}
+
+function saveFolderSizeWithUrl(folderId, cacheData, urlKey, userEmail = null) {
+  chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
+    const cache = data.folderSizeCache || {};
+    const user = userEmail || data.currentUser || 'default';
+    
+    if (!cache[user]) cache[user] = {};
+    if (!cache[user][urlKey]) cache[user][urlKey] = {};
+    
+    cache[user][urlKey][folderId] = cacheData;
+    
+    chrome.storage.local.set({ folderSizeCache: cache });
+  });
+}
+
+function getFolderSizeWithUrl(folderId, urlKey, userEmail = null) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
+      const cache = data.folderSizeCache || {};
+      const user = userEmail || data.currentUser || 'default';
+      
+      const cacheData = cache[user]?.[urlKey]?.[folderId] || null;
+      resolve(cacheData);
+    });
+  });
+}
+
+function getUrlCache(urlKey, userEmail = null) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
+      const cache = data.folderSizeCache || {};
+      const user = userEmail || data.currentUser || 'default';
+      
+      const urlCache = cache[user]?.[urlKey] || {};
+      resolve(urlCache);
+    });
+  });
+}
+
+function getCacheStats(urlKey, userEmail = null) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
+      const cache = data.folderSizeCache || {};
+      const user = userEmail || data.currentUser || 'default';
+      
+      const userCache = cache[user] || {};
+      const totalItems = Object.values(userCache).reduce((sum, urlData) => 
+        sum + Object.keys(urlData).length, 0);
+      const urlItems = Object.keys(userCache[urlKey] || {}).length;
+      
+      resolve({
+        totalItems,
+        urlItems,
+        urlsCount: Object.keys(userCache).length
+      });
+    });
+  });
+}
+
+async function cleanupOldCache() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['folderSizeCache', 'lastCacheCleanup'], (data) => {
+      const now = Date.now();
+      const lastCleanup = data.lastCacheCleanup || 0;
+      
+      if (now - lastCleanup < 6 * 60 * 60 * 1000) {
+        resolve();
+        return;
+      }
+      
+      const cache = data.folderSizeCache || {};
+      const maxAge = 12 * 60 * 60 * 1000;
+      let cleaned = 0;
+      
+      for (const user in cache) {
+        for (const urlKey in cache[user]) {
+          for (const folderId in cache[user][urlKey]) {
+            const cacheData = cache[user][urlKey][folderId];
+            if (cacheData?.timestamp && (now - cacheData.timestamp) > maxAge) {
+              delete cache[user][urlKey][folderId];
+              cleaned++;
+            }
+          }
+          
+          if (Object.keys(cache[user][urlKey]).length === 0) {
+            delete cache[user][urlKey];
+          }
+        }
+        
+        if (Object.keys(cache[user]).length === 0) {
+          delete cache[user];
+        }
+      }
+      
+      chrome.storage.local.set({ 
+        folderSizeCache: cache,
+        lastCacheCleanup: now
+      });
+      
+      if (cleaned > 0) {
+        console.log(`[Cache Cleanup] Rimossi ${cleaned} elementi vecchi`);
+      }
+      
+      resolve();
+    });
+  });
+}
+
+function saveFolderSizeToCache(folderId, size, userEmail = null, cacheData = null) {
+  chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
+    const cache = data.folderSizeCache || {};
+    const user = userEmail || data.currentUser || 'default';
+    
+    if (!cache[user]) cache[user] = {};
+    if (!cache[user]['legacy']) cache[user]['legacy'] = {};
+    
+    cache[user]['legacy'][folderId] = cacheData || {
+      size: size,
+      timestamp: Date.now(),
+      version: '3.4.0'
+    };
+    
+    chrome.storage.local.set({ folderSizeCache: cache });
+  });
+}
+
+function getFolderSizeFromCache(folderId, userEmail = null) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
+      const cache = data.folderSizeCache || {};
+      const user = userEmail || data.currentUser || 'default';
+      
+      resolve(cache[user]?.['legacy']?.[folderId] || null);
+    });
+  });
+}
+
+function clearFolderSizeCache(userEmail = null) {
+  return new Promise((resolve) => {
+    if (userEmail) {
+      chrome.storage.local.get('folderSizeCache', (data) => {
+        const cache = data.folderSizeCache || {};
+        delete cache[userEmail];
+        chrome.storage.local.set({ folderSizeCache: cache }, resolve);
+      });
+    } else {
+      chrome.storage.local.set({ folderSizeCache: {} }, resolve);
+    }
+  });
+}
+
+setInterval(() => {
+  cleanupOldCache();
+}, 60 * 60 * 1000);
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  
+  if (request.type === "GET_TOKEN") {
+    const forcePrompt = request.forcePrompt || false;
+    getAuthToken(true, forcePrompt)
+      .then(token => sendResponse({ token }))
+      .catch(error => sendResponse({ error: error.message }));
+    return true;
+  } 
+  
+  if (request.type === "LOGOUT") {
+    chrome.identity.getAuthToken({ interactive: false }, (token) => {
+      if (token) {
+        chrome.identity.removeCachedAuthToken({ token: token }, () => {
+        });
+      }
+    });
+    
+    chrome.storage.local.get('currentUser', (data) => {
+      clearFolderSizeCache(data.currentUser).then(() => {
+        chrome.storage.local.set({ 
+          authStatus: 'unauthenticated', 
+          currentUser: null,
+          isExtensionEnabled: true
+        });
+        sendResponse({ success: true });
+      });
+    });
+    return true;
+  }
+  
+  if (request.type === "LOGOUT_WITH_REVOKE") {
+    revokeTokenAndLogout()
+      .then(response => sendResponse(response))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+  
+  if (request.type === "TOGGLE_EXTENSION") {
+    chrome.storage.local.get('isExtensionEnabled', (data) => {
+      const isEnabled = !data.isExtensionEnabled;
+      chrome.storage.local.set({ isExtensionEnabled: isEnabled });
+      sendResponse({ enabled: isEnabled });
+    });
+    return true;
+  } 
+  
+  if (request.type === "GET_EXTENSION_STATUS") {
+    chrome.storage.local.get(['isExtensionEnabled', 'currentUser'], (data) => {
+      sendResponse({ 
+        enabled: data.isExtensionEnabled !== false,
+        currentUser: data.currentUser
+      });
+    });
+    return true;
+  }
+  
+  if (request.type === "CHECK_SUBSCRIPTION") {
+    chrome.storage.local.get('currentUser', async (data) => {
+      if (!data.currentUser) {
+        sendResponse({ hasActiveSubscription: false });
+        return;
+      }
+      
+      try {
+        const response = await fetch('https://backend-gdfs.onrender.com/api/check-subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: data.currentUser })
+        });
+        
+        const result = await response.json();
+        
+        chrome.storage.local.set({ 
+          hasActiveSubscription: result.hasActiveSubscription,
+          subscriptionData: result.subscription 
+        });
+        
+        sendResponse({ 
+          hasActiveSubscription: result.hasActiveSubscription,
+          subscription: result.subscription 
+        });
+        
+      } catch (error) {
+        console.error('Errore verifica abbonamento:', error);
+        sendResponse({ hasActiveSubscription: false, error: error.message });
+      }
+    });
+    return true;
+  }
+
+  if (request.type === "CREATE_CHECKOUT") {
+    chrome.storage.local.get('currentUser', (data) => {
+      if (!data.currentUser) {
+        sendResponse({ success: false, error: 'Utente non autenticato' });
+        return;
+      }
+      
+      const processCheckout = async () => {
+        try {
+          const checkoutData = { 
+            userId: data.currentUser,
+            email: data.currentUser 
+          };
+          
+          const response = await fetch('https://backend-gdfs.onrender.com/api/create-checkout-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(checkoutData)
+          });
+          
+          const result = await response.json();
+          
+          if (result.url) {
+            chrome.tabs.create({ url: result.url });
+            sendResponse({ success: true, sessionId: result.sessionId });
+          } else {
+            sendResponse({ success: false, error: result.error || 'URL checkout non ricevuto' });
+          }
+          
+        } catch (error) {
+          console.error('Errore creazione checkout:', error);
+          sendResponse({ success: false, error: error.message });
+        }
+      };
+      
+      processCheckout();
+    });
+    return true;
+  }
+  
+  if (request.type === "SAVE_FOLDER_SIZE_WITH_URL") {
+    const { folderId, cacheData, urlKey, userEmail } = request;
+    saveFolderSizeWithUrl(folderId, cacheData, urlKey, userEmail);
+    sendResponse({ success: true });
+    return true;
+  }
+  
+  if (request.type === "GET_FOLDER_SIZE_WITH_URL") {
+    const { folderId, urlKey, userEmail } = request;
+    getFolderSizeWithUrl(folderId, urlKey, userEmail).then(cacheData => {
+      sendResponse({ cacheData });
+    });
+    return true;
+  }
+  
+  if (request.type === "GET_URL_CACHE") {
+    const { urlKey, userEmail } = request;
+    getUrlCache(urlKey, userEmail).then(cache => {
+      sendResponse({ cache });
+    });
+    return true;
+  }
+  
+  if (request.type === "GET_CACHE_STATS") {
+    const { urlKey, userEmail } = request;
+    getCacheStats(urlKey, userEmail).then(stats => {
+      sendResponse({ stats });
+    });
+    return true;
+  }
+  
+  if (request.type === "CLEAR_URL_CACHE") {
+    const { urlKey, userEmail } = request;
+    chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
+      const cache = data.folderSizeCache || {};
+      const user = userEmail || data.currentUser || 'default';
+      
+      if (cache[user] && cache[user][urlKey]) {
+        delete cache[user][urlKey];
+        chrome.storage.local.set({ folderSizeCache: cache });
+      }
+      sendResponse({ success: true });
+    });
+    return true;
+  }
+  
+  if (request.type === "SAVE_FOLDER_SIZE") {
+    const { folderId, size, userEmail } = request;
+    saveFolderSizeToCache(folderId, size, userEmail);
+    sendResponse({ success: true });
+    return true;
+  }
+  
+  if (request.type === "GET_FOLDER_SIZE") {
+    const { folderId, userEmail } = request;
+    getFolderSizeFromCache(folderId, userEmail).then(cacheData => {
+      sendResponse({ cacheData });
+    });
+    return true;
+  }
+  
+  if (request.type === "CLEAR_CACHE") {
+    const { userEmail, specificFolder, urlKey } = request;
+    
+    if (urlKey) {
+      chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
+        const cache = data.folderSizeCache || {};
+        const user = userEmail || data.currentUser || 'default';
+        
+        if (cache[user] && cache[user][urlKey]) {
+          delete cache[user][urlKey];
+          chrome.storage.local.set({ folderSizeCache: cache });
+        }
+        sendResponse({ success: true });
+      });
+    } else if (specificFolder) {
+      chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
+        const cache = data.folderSizeCache || {};
+        const user = userEmail || data.currentUser || 'default';
+        
+        if (cache[user]) {
+          for (const urlKey in cache[user]) {
+            if (cache[user][urlKey][specificFolder]) {
+              delete cache[user][urlKey][specificFolder];
+            }
+          }
+          chrome.storage.local.set({ folderSizeCache: cache });
+        }
+        sendResponse({ success: true });
+      });
+    } else {
+      clearFolderSizeCache(userEmail).then(() => {
+        sendResponse({ success: true });
+      });
+    }
+    return true;
+  }
+
+  if (request.type === "GET_ALL_CACHE") {
+    chrome.storage.local.get('folderSizeCache', (data) => {
+      sendResponse({ cache: data.folderSizeCache || {} });
+    });
+    return true;
+  }
+  
+  if (request.type === "CLEANUP_CACHE") {
+    cleanupOldCache().then(() => {
+      sendResponse({ success: true });
+    });
+    return true;
+  }
+  
+  return false;
 });
