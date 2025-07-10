@@ -1,526 +1,864 @@
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.set({
-    isExtensionEnabled: true,
-    authStatus: 'pending',
-    folderSizeCache: {},
-    currentUser: null,
-    lastCacheCleanup: Date.now()
-  });
-});
+// DocManager Admin JavaScript
 
-let lastTokenRequest = 0;
-const TOKEN_COOLDOWN = 1000;
-
-function getAuthToken(interactive = false, prompt = false) {
-  return new Promise((resolve, reject) => {
-    const now = Date.now();
+jQuery(document).ready(function($) {
     
-    if (now - lastTokenRequest < TOKEN_COOLDOWN && !interactive) {
-      reject(new Error('Troppe richieste di token'));
-      return;
+    // Inizializzazione componenti admin
+    initMetaboxes();
+    initBulkActions();
+    initSettings();
+    initLogManagement();
+    initFileManagement();
+    initDashboardStats();
+    initQuickActions();
+    
+    /**
+     * Inizializza funzionalità metabox
+     */
+    function initMetaboxes() {
+        // Gestione upload file nei metabox
+        $('.docmanager-file-upload').on('change', function() {
+            var $input = $(this);
+            var $preview = $input.closest('.docmanager-metabox').find('.docmanager-file-preview');
+            var file = $input[0].files[0];
+            
+            if (file) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    if (file.type.startsWith('image/')) {
+                        $preview.html('<img src="' + e.target.result + '" style="max-width: 200px; max-height: 200px;">');
+                    } else {
+                        $preview.html('<p><strong>File selezionato:</strong> ' + file.name + '</p>');
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // Rimozione file
+        $('.docmanager-remove-file').on('click', function(e) {
+            e.preventDefault();
+            
+            if (confirm('Sei sicuro di voler rimuovere questo file?')) {
+                var $btn = $(this);
+                var postId = $btn.data('post-id');
+                
+                $.ajax({
+                    url: docmanager_ajax.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'docmanager_remove_file',
+                        post_id: postId,
+                        nonce: docmanager_ajax.nonce
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            $btn.closest('.docmanager-file-info').fadeOut(function() {
+                                $(this).remove();
+                            });
+                            showNotice('File rimosso con successo', 'success');
+                        } else {
+                            showNotice('Errore durante la rimozione del file', 'error');
+                        }
+                    },
+                    error: function() {
+                        showNotice('Errore di connessione', 'error');
+                    }
+                });
+            }
+        });
     }
     
-    lastTokenRequest = now;
-    
-    const authOptions = { 
-      interactive: interactive,
-      scopes: ['https://www.googleapis.com/auth/drive.readonly']
-    };
-    
-    if (prompt && interactive) {
-      chrome.identity.getAuthToken({ interactive: false }, (existingToken) => {
-        if (existingToken) {
-          chrome.identity.removeCachedAuthToken({ token: existingToken }, () => {
-            requestTokenWithPrompt();
-          });
-        } else {
-          requestTokenWithPrompt();
-        }
-      });
-    } else {
-      chrome.identity.getAuthToken(authOptions, handleTokenResponse);
-    }
-    
-    function requestTokenWithPrompt() {
-      chrome.identity.getAuthToken({ 
-        interactive: true,
-        scopes: ['https://www.googleapis.com/auth/drive.readonly']
-      }, handleTokenResponse);
-    }
-    
-    function handleTokenResponse(token) {
-      if (chrome.runtime.lastError) {
-        console.error('Errore di autenticazione:', chrome.runtime.lastError);
-        chrome.storage.local.set({ authStatus: 'unauthenticated', currentUser: null });
-        reject(chrome.runtime.lastError);
-      } else if (!token) {
-        console.error('Token non ricevuto');
-        chrome.storage.local.set({ authStatus: 'unauthenticated', currentUser: null });
-        reject(new Error('Token non ricevuto'));
-      } else {
-        getUserInfo(token).then(userInfo => {
-          chrome.storage.local.get('currentUser', (data) => {
-            if (data.currentUser && data.currentUser !== userInfo.emailAddress) {
-              clearFolderSizeCache(data.currentUser);
+    /**
+     * Inizializza azioni bulk
+     */
+    function initBulkActions() {
+        // Selezione tutti i checkbox
+        $('#cb-select-all-1, #cb-select-all-2').on('change', function() {
+            var checked = $(this).prop('checked');
+            $('.wp-list-table tbody input[type="checkbox"]').prop('checked', checked);
+            updateBulkActionsState();
+        });
+        
+        // Gestione singoli checkbox
+        $('.wp-list-table tbody input[type="checkbox"]').on('change', function() {
+            updateBulkActionsState();
+        });
+        
+        // Esecuzione azioni bulk
+        $('#doaction, #doaction2').on('click', function(e) {
+            var action = $(this).prev('select').val();
+            var selected = $('.wp-list-table tbody input[type="checkbox"]:checked');
+            
+            if (action === '-1') {
+                e.preventDefault();
+                return false;
             }
             
-            chrome.storage.local.set({ 
-              authStatus: 'authenticated', 
-              currentUser: userInfo.emailAddress 
+            if (selected.length === 0) {
+                e.preventDefault();
+                alert('Seleziona almeno un elemento.');
+                return false;
+            }
+            
+            if (action === 'delete') {
+                e.preventDefault();
+                if (confirm('Sei sicuro di voler eliminare ' + selected.length + ' elementi?')) {
+                    executeBulkAction(action, selected);
+                }
+                return false;
+            }
+            
+            if (action === 'reassign') {
+                e.preventDefault();
+                var userId = prompt('Inserisci l\'ID dell\'utente a cui assegnare i documenti:');
+                if (userId) {
+                    executeBulkAction(action, selected, {user_id: userId});
+                }
+                return false;
+            }
+        });
+    }
+    
+    /**
+     * Aggiorna stato pulsanti azioni bulk
+     */
+    function updateBulkActionsState() {
+        var selected = $('.wp-list-table tbody input[type="checkbox"]:checked').length;
+        var total = $('.wp-list-table tbody input[type="checkbox"]').length;
+        
+        // Aggiorna stato "Seleziona tutto"
+        if (selected === 0) {
+            $('#cb-select-all-1, #cb-select-all-2').prop('indeterminate', false).prop('checked', false);
+        } else if (selected === total) {
+            $('#cb-select-all-1, #cb-select-all-2').prop('indeterminate', false).prop('checked', true);
+        } else {
+            $('#cb-select-all-1, #cb-select-all-2').prop('indeterminate', true);
+        }
+        
+        // Mostra/nascondi counter
+        if (selected > 0) {
+            $('.bulkactions .selected-count').remove();
+            $('.bulkactions').append('<span class="selected-count">(' + selected + ' selezionati)</span>');
+        } else {
+            $('.bulkactions .selected-count').remove();
+        }
+    }
+    
+    /**
+     * Esegue azione bulk
+     */
+    function executeBulkAction(action, selected, data) {
+        var postIds = [];
+        selected.each(function() {
+            postIds.push($(this).val());
+        });
+        
+        var ajaxData = {
+            action: 'docmanager_bulk_action',
+            bulk_action: action,
+            post_ids: postIds,
+            nonce: docmanager_ajax.nonce
+        };
+        
+        if (data) {
+            $.extend(ajaxData, data);
+        }
+        
+        $.ajax({
+            url: docmanager_ajax.ajax_url,
+            type: 'POST',
+            data: ajaxData,
+            beforeSend: function() {
+                $('#doaction, #doaction2').prop('disabled', true);
+                $('.bulkactions').append('<span class="spinner is-active"></span>');
+            },
+            success: function(response) {
+                if (response.success) {
+                    showNotice(response.data.message, 'success');
+                    location.reload();
+                } else {
+                    showNotice(response.data.message, 'error');
+                }
+            },
+            error: function() {
+                showNotice('Errore durante l\'esecuzione dell\'azione', 'error');
+            },
+            complete: function() {
+                $('#doaction, #doaction2').prop('disabled', false);
+                $('.bulkactions .spinner').remove();
+            }
+        });
+    }
+    
+    /**
+     * Inizializza pagina impostazioni
+     */
+    function initSettings() {
+        // Tabs nelle impostazioni
+        $('.docmanager-tab-nav button').on('click', function() {
+            var target = $(this).data('tab');
+            
+            $('.docmanager-tab-nav button').removeClass('active');
+            $('.docmanager-tab-content').removeClass('active');
+            
+            $(this).addClass('active');
+            $('#' + target).addClass('active');
+        });
+        
+        // Validazione form impostazioni
+        $('#docmanager-settings-form').on('submit', function(e) {
+            var maxSize = parseInt($('#max_file_size').val());
+            if (maxSize <= 0 || maxSize > 100) {
+                e.preventDefault();
+                alert('La dimensione massima deve essere compresa tra 1 e 100 MB');
+                return false;
+            }
+            
+            var allowedTypes = $('#allowed_file_types').val().trim();
+            if (!allowedTypes) {
+                e.preventDefault();
+                alert('Inserisci almeno un tipo di file consentito');
+                return false;
+            }
+        });
+        
+        // Reset impostazioni
+        $('.docmanager-reset-settings').on('click', function(e) {
+            e.preventDefault();
+            
+            if (confirm('Sei sicuro di voler ripristinare le impostazioni predefinite?')) {
+                $.ajax({
+                    url: docmanager_ajax.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'docmanager_reset_settings',
+                        nonce: docmanager_ajax.nonce
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            showNotice('Impostazioni ripristinate', 'success');
+                            location.reload();
+                        } else {
+                            showNotice('Errore durante il ripristino', 'error');
+                        }
+                    },
+                    error: function() {
+                        showNotice('Errore di connessione', 'error');
+                    }
+                });
+            }
+        });
+        
+        // Test configurazione email
+        $('.docmanager-test-email').on('click', function(e) {
+            e.preventDefault();
+            
+            var email = prompt('Inserisci l\'email di test:');
+            if (email) {
+                $.ajax({
+                    url: docmanager_ajax.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'docmanager_test_email',
+                        email: email,
+                        nonce: docmanager_ajax.nonce
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            showNotice('Email di test inviata', 'success');
+                        } else {
+                            showNotice('Errore invio email: ' + response.data.message, 'error');
+                        }
+                    },
+                    error: function() {
+                        showNotice('Errore di connessione', 'error');
+                    }
+                });
+            }
+        });
+    }
+    
+    /**
+     * Inizializza gestione log
+     */
+    function initLogManagement() {
+        // Filtri log
+        $('#log-filter-user, #log-filter-action, #log-filter-date').on('change', function() {
+            var $form = $(this).closest('form');
+            $form.submit();
+        });
+        
+        // Esporta log
+        $('.docmanager-export-logs').on('click', function(e) {
+            e.preventDefault();
+            
+            var format = $(this).data('format') || 'csv';
+            var url = docmanager_ajax.ajax_url + '?action=docmanager_export_logs&format=' + format + '&nonce=' + docmanager_ajax.nonce;
+            
+            // Aggiungere filtri correnti
+            var filters = {};
+            $('#log-filter-user, #log-filter-action, #log-filter-date').each(function() {
+                if ($(this).val()) {
+                    filters[$(this).attr('name')] = $(this).val();
+                }
             });
             
-            resolve(token);
-          });
-        }).catch(error => {
-          console.error('Errore verifica utente:', error);
-          chrome.storage.local.set({ authStatus: 'authenticated' });
-          resolve(token);
-        });
-      }
-    }
-  });
-}
-
-async function revokeTokenAndLogout() {
-  return new Promise((resolve) => {
-    chrome.identity.getAuthToken({ interactive: false }, async (token) => {
-      if (token) {
-        try {
-          await fetch(`https://oauth2.googleapis.com/revoke?token=${token}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-          });
-        } catch (error) {
-          console.error('Errore revoca token:', error);
-        }
-        
-        chrome.identity.removeCachedAuthToken({ token: token }, () => {
-        });
-      }
-      
-      chrome.storage.local.get('currentUser', (data) => {
-        clearFolderSizeCache(data.currentUser).then(() => {
-          chrome.storage.local.set({ 
-            authStatus: 'unauthenticated', 
-            currentUser: null,
-            isExtensionEnabled: true
-          });
-          resolve({ success: true });
-        });
-      });
-    });
-  });
-}
-
-async function getUserInfo(token) {
-  const response = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-  
-  const data = await response.json();
-  return data.user;
-}
-
-function saveFolderSizeWithUrl(folderId, cacheData, urlKey, userEmail = null) {
-  chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
-    const cache = data.folderSizeCache || {};
-    const user = userEmail || data.currentUser || 'default';
-    
-    if (!cache[user]) cache[user] = {};
-    if (!cache[user][urlKey]) cache[user][urlKey] = {};
-    
-    cache[user][urlKey][folderId] = cacheData;
-    
-    chrome.storage.local.set({ folderSizeCache: cache });
-  });
-}
-
-function getFolderSizeWithUrl(folderId, urlKey, userEmail = null) {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
-      const cache = data.folderSizeCache || {};
-      const user = userEmail || data.currentUser || 'default';
-      
-      const cacheData = cache[user]?.[urlKey]?.[folderId] || null;
-      resolve(cacheData);
-    });
-  });
-}
-
-function getUrlCache(urlKey, userEmail = null) {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
-      const cache = data.folderSizeCache || {};
-      const user = userEmail || data.currentUser || 'default';
-      
-      const urlCache = cache[user]?.[urlKey] || {};
-      resolve(urlCache);
-    });
-  });
-}
-
-function getCacheStats(urlKey, userEmail = null) {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
-      const cache = data.folderSizeCache || {};
-      const user = userEmail || data.currentUser || 'default';
-      
-      const userCache = cache[user] || {};
-      const totalItems = Object.values(userCache).reduce((sum, urlData) => 
-        sum + Object.keys(urlData).length, 0);
-      const urlItems = Object.keys(userCache[urlKey] || {}).length;
-      
-      resolve({
-        totalItems,
-        urlItems,
-        urlsCount: Object.keys(userCache).length
-      });
-    });
-  });
-}
-
-async function cleanupOldCache() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(['folderSizeCache', 'lastCacheCleanup'], (data) => {
-      const now = Date.now();
-      const lastCleanup = data.lastCacheCleanup || 0;
-      
-      if (now - lastCleanup < 6 * 60 * 60 * 1000) {
-        resolve();
-        return;
-      }
-      
-      const cache = data.folderSizeCache || {};
-      const maxAge = 12 * 60 * 60 * 1000;
-      let cleaned = 0;
-      
-      for (const user in cache) {
-        for (const urlKey in cache[user]) {
-          for (const folderId in cache[user][urlKey]) {
-            const cacheData = cache[user][urlKey][folderId];
-            if (cacheData?.timestamp && (now - cacheData.timestamp) > maxAge) {
-              delete cache[user][urlKey][folderId];
-              cleaned++;
+            if (Object.keys(filters).length > 0) {
+                url += '&' + $.param(filters);
             }
-          }
-          
-          if (Object.keys(cache[user][urlKey]).length === 0) {
-            delete cache[user][urlKey];
-          }
-        }
-        
-        if (Object.keys(cache[user]).length === 0) {
-          delete cache[user];
-        }
-      }
-      
-      chrome.storage.local.set({ 
-        folderSizeCache: cache,
-        lastCacheCleanup: now
-      });
-      
-      if (cleaned > 0) {
-        console.log(`[Cache Cleanup] Rimossi ${cleaned} elementi vecchi`);
-      }
-      
-      resolve();
-    });
-  });
-}
-
-function saveFolderSizeToCache(folderId, size, userEmail = null, cacheData = null) {
-  chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
-    const cache = data.folderSizeCache || {};
-    const user = userEmail || data.currentUser || 'default';
-    
-    if (!cache[user]) cache[user] = {};
-    if (!cache[user]['legacy']) cache[user]['legacy'] = {};
-    
-    cache[user]['legacy'][folderId] = cacheData || {
-      size: size,
-      timestamp: Date.now(),
-      version: '3.4.0'
-    };
-    
-    chrome.storage.local.set({ folderSizeCache: cache });
-  });
-}
-
-function getFolderSizeFromCache(folderId, userEmail = null) {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
-      const cache = data.folderSizeCache || {};
-      const user = userEmail || data.currentUser || 'default';
-      
-      resolve(cache[user]?.['legacy']?.[folderId] || null);
-    });
-  });
-}
-
-function clearFolderSizeCache(userEmail = null) {
-  return new Promise((resolve) => {
-    if (userEmail) {
-      chrome.storage.local.get('folderSizeCache', (data) => {
-        const cache = data.folderSizeCache || {};
-        delete cache[userEmail];
-        chrome.storage.local.set({ folderSizeCache: cache }, resolve);
-      });
-    } else {
-      chrome.storage.local.set({ folderSizeCache: {} }, resolve);
-    }
-  });
-}
-
-setInterval(() => {
-  cleanupOldCache();
-}, 60 * 60 * 1000);
-
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  
-  if (request.type === "GET_TOKEN") {
-    const forcePrompt = request.forcePrompt || false;
-    getAuthToken(true, forcePrompt)
-      .then(token => sendResponse({ token }))
-      .catch(error => sendResponse({ error: error.message }));
-    return true;
-  } 
-  
-  if (request.type === "LOGOUT") {
-    chrome.identity.getAuthToken({ interactive: false }, (token) => {
-      if (token) {
-        chrome.identity.removeCachedAuthToken({ token: token }, () => {
-        });
-      }
-    });
-    
-    chrome.storage.local.get('currentUser', (data) => {
-      clearFolderSizeCache(data.currentUser).then(() => {
-        chrome.storage.local.set({ 
-          authStatus: 'unauthenticated', 
-          currentUser: null,
-          isExtensionEnabled: true
-        });
-        sendResponse({ success: true });
-      });
-    });
-    return true;
-  }
-  
-  if (request.type === "LOGOUT_WITH_REVOKE") {
-    revokeTokenAndLogout()
-      .then(response => sendResponse(response))
-      .catch(error => sendResponse({ success: false, error: error.message }));
-    return true;
-  }
-  
-  if (request.type === "TOGGLE_EXTENSION") {
-    chrome.storage.local.get('isExtensionEnabled', (data) => {
-      const isEnabled = !data.isExtensionEnabled;
-      chrome.storage.local.set({ isExtensionEnabled: isEnabled });
-      sendResponse({ enabled: isEnabled });
-    });
-    return true;
-  } 
-  
-  if (request.type === "GET_EXTENSION_STATUS") {
-    chrome.storage.local.get(['isExtensionEnabled', 'currentUser'], (data) => {
-      sendResponse({ 
-        enabled: data.isExtensionEnabled !== false,
-        currentUser: data.currentUser
-      });
-    });
-    return true;
-  }
-  
-  if (request.type === "CHECK_SUBSCRIPTION") {
-    chrome.storage.local.get('currentUser', async (data) => {
-      if (!data.currentUser) {
-        sendResponse({ hasActiveSubscription: false });
-        return;
-      }
-      
-      try {
-        const response = await fetch('https://backend-gdfs.onrender.com/api/check-subscription', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: data.currentUser })
+            
+            window.location = url;
         });
         
-        const result = await response.json();
-        
-        chrome.storage.local.set({ 
-          hasActiveSubscription: result.hasActiveSubscription,
-          subscriptionData: result.subscription 
-        });
-        
-        sendResponse({ 
-          hasActiveSubscription: result.hasActiveSubscription,
-          subscription: result.subscription 
-        });
-        
-      } catch (error) {
-        console.error('Errore verifica abbonamento:', error);
-        sendResponse({ hasActiveSubscription: false, error: error.message });
-      }
-    });
-    return true;
-  }
-
-  if (request.type === "CREATE_CHECKOUT") {
-    chrome.storage.local.get('currentUser', (data) => {
-      if (!data.currentUser) {
-        sendResponse({ success: false, error: 'Utente non autenticato' });
-        return;
-      }
-      
-      const processCheckout = async () => {
-        try {
-          const checkoutData = { 
-            userId: data.currentUser,
-            email: data.currentUser 
-          };
-          
-          const response = await fetch('https://backend-gdfs.onrender.com/api/create-checkout-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(checkoutData)
-          });
-          
-          const result = await response.json();
-          
-          if (result.url) {
-            chrome.tabs.create({ url: result.url });
-            sendResponse({ success: true, sessionId: result.sessionId });
-          } else {
-            sendResponse({ success: false, error: result.error || 'URL checkout non ricevuto' });
-          }
-          
-        } catch (error) {
-          console.error('Errore creazione checkout:', error);
-          sendResponse({ success: false, error: error.message });
-        }
-      };
-      
-      processCheckout();
-    });
-    return true;
-  }
-  
-  if (request.type === "SAVE_FOLDER_SIZE_WITH_URL") {
-    const { folderId, cacheData, urlKey, userEmail } = request;
-    saveFolderSizeWithUrl(folderId, cacheData, urlKey, userEmail);
-    sendResponse({ success: true });
-    return true;
-  }
-  
-  if (request.type === "GET_FOLDER_SIZE_WITH_URL") {
-    const { folderId, urlKey, userEmail } = request;
-    getFolderSizeWithUrl(folderId, urlKey, userEmail).then(cacheData => {
-      sendResponse({ cacheData });
-    });
-    return true;
-  }
-  
-  if (request.type === "GET_URL_CACHE") {
-    const { urlKey, userEmail } = request;
-    getUrlCache(urlKey, userEmail).then(cache => {
-      sendResponse({ cache });
-    });
-    return true;
-  }
-  
-  if (request.type === "GET_CACHE_STATS") {
-    const { urlKey, userEmail } = request;
-    getCacheStats(urlKey, userEmail).then(stats => {
-      sendResponse({ stats });
-    });
-    return true;
-  }
-  
-  if (request.type === "CLEAR_URL_CACHE") {
-    const { urlKey, userEmail } = request;
-    chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
-      const cache = data.folderSizeCache || {};
-      const user = userEmail || data.currentUser || 'default';
-      
-      if (cache[user] && cache[user][urlKey]) {
-        delete cache[user][urlKey];
-        chrome.storage.local.set({ folderSizeCache: cache });
-      }
-      sendResponse({ success: true });
-    });
-    return true;
-  }
-  
-  if (request.type === "SAVE_FOLDER_SIZE") {
-    const { folderId, size, userEmail } = request;
-    saveFolderSizeToCache(folderId, size, userEmail);
-    sendResponse({ success: true });
-    return true;
-  }
-  
-  if (request.type === "GET_FOLDER_SIZE") {
-    const { folderId, userEmail } = request;
-    getFolderSizeFromCache(folderId, userEmail).then(cacheData => {
-      sendResponse({ cacheData });
-    });
-    return true;
-  }
-  
-  if (request.type === "CLEAR_CACHE") {
-    const { userEmail, specificFolder, urlKey } = request;
-    
-    if (urlKey) {
-      chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
-        const cache = data.folderSizeCache || {};
-        const user = userEmail || data.currentUser || 'default';
-        
-        if (cache[user] && cache[user][urlKey]) {
-          delete cache[user][urlKey];
-          chrome.storage.local.set({ folderSizeCache: cache });
-        }
-        sendResponse({ success: true });
-      });
-    } else if (specificFolder) {
-      chrome.storage.local.get(['folderSizeCache', 'currentUser'], (data) => {
-        const cache = data.folderSizeCache || {};
-        const user = userEmail || data.currentUser || 'default';
-        
-        if (cache[user]) {
-          for (const urlKey in cache[user]) {
-            if (cache[user][urlKey][specificFolder]) {
-              delete cache[user][urlKey][specificFolder];
+        // Cancella log
+        $('.docmanager-clear-logs').on('click', function(e) {
+            e.preventDefault();
+            
+            if (confirm('Sei sicuro di voler cancellare tutti i log? Questa azione non può essere annullata.')) {
+                $.ajax({
+                    url: docmanager_ajax.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'docmanager_clear_logs',
+                        nonce: docmanager_ajax.nonce
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            showNotice('Log cancellati con successo', 'success');
+                            location.reload();
+                        } else {
+                            showNotice('Errore durante la cancellazione dei log', 'error');
+                        }
+                    },
+                    error: function() {
+                        showNotice('Errore di connessione', 'error');
+                    }
+                });
             }
-          }
-          chrome.storage.local.set({ folderSizeCache: cache });
-        }
-        sendResponse({ success: true });
-      });
-    } else {
-      clearFolderSizeCache(userEmail).then(() => {
-        sendResponse({ success: true });
-      });
+        });
     }
-    return true;
-  }
-
-  if (request.type === "GET_ALL_CACHE") {
-    chrome.storage.local.get('folderSizeCache', (data) => {
-      sendResponse({ cache: data.folderSizeCache || {} });
+    
+    /**
+     * Inizializza gestione file
+     */
+    function initFileManagement() {
+        // Pulizia file orfani
+        $('.docmanager-cleanup-files').on('click', function(e) {
+            e.preventDefault();
+            
+            if (confirm('Questa operazione eliminerà i file non associati a nessun documento. Continuare?')) {
+                $.ajax({
+                    url: docmanager_ajax.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'docmanager_cleanup_files',
+                        nonce: docmanager_ajax.nonce
+                    },
+                    beforeSend: function() {
+                        $('.docmanager-cleanup-files').prop('disabled', true).text('Pulizia in corso...');
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            showNotice(response.data.message, 'success');
+                        } else {
+                            showNotice('Errore durante la pulizia', 'error');
+                        }
+                    },
+                    error: function() {
+                        showNotice('Errore di connessione', 'error');
+                    },
+                    complete: function() {
+                        $('.docmanager-cleanup-files').prop('disabled', false).text('Pulisci File Orfani');
+                    }
+                });
+            }
+        });
+        
+        // Controllo spazio disco
+        $('.docmanager-check-disk-space').on('click', function(e) {
+            e.preventDefault();
+            
+            $.ajax({
+                url: docmanager_ajax.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'docmanager_check_disk_space',
+                    nonce: docmanager_ajax.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        var data = response.data;
+                        var html = '<div class="docmanager-disk-info">';
+                        html += '<p><strong>Spazio totale:</strong> ' + data.total_space + '</p>';
+                        html += '<p><strong>Spazio utilizzato:</strong> ' + data.used_space + '</p>';
+                        html += '<p><strong>Spazio libero:</strong> ' + data.free_space + '</p>';
+                        html += '<p><strong>File DocManager:</strong> ' + data.docmanager_files + '</p>';
+                        html += '</div>';
+                        
+                        $('#docmanager-disk-info').html(html);
+                    } else {
+                        showNotice('Errore durante il controllo dello spazio', 'error');
+                    }
+                },
+                error: function() {
+                    showNotice('Errore di connessione', 'error');
+                }
+            });
+        });
+    }
+    
+    /**
+     * Inizializza statistiche dashboard
+     */
+    function initDashboardStats() {
+        // Ricarica statistiche
+        $('.docmanager-refresh-stats').on('click', function(e) {
+            e.preventDefault();
+            
+            $.ajax({
+                url: docmanager_ajax.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'docmanager_refresh_stats',
+                    nonce: docmanager_ajax.nonce
+                },
+                beforeSend: function() {
+                    $('.docmanager-stats').addClass('loading');
+                },
+                success: function(response) {
+                    if (response.success) {
+                        var stats = response.data;
+                        updateStatsDisplay(stats);
+                        showNotice('Statistiche aggiornate', 'success');
+                    } else {
+                        showNotice('Errore durante l\'aggiornamento delle statistiche', 'error');
+                    }
+                },
+                error: function() {
+                    showNotice('Errore di connessione', 'error');
+                },
+                complete: function() {
+                    $('.docmanager-stats').removeClass('loading');
+                }
+            });
+        });
+        
+        // Grafico statistiche
+        if ($('#docmanager-stats-chart').length) {
+            loadStatsChart();
+        }
+    }
+    
+    /**
+     * Aggiorna visualizzazione statistiche
+     */
+    function updateStatsDisplay(stats) {
+        $('.docmanager-stat-number').each(function() {
+            var $stat = $(this);
+            var key = $stat.data('stat');
+            if (stats[key] !== undefined) {
+                animateNumber($stat, stats[key]);
+            }
+        });
+    }
+    
+    /**
+     * Anima numero statistiche
+     */
+    function animateNumber($element, newValue) {
+        var currentValue = parseInt($element.text()) || 0;
+        var increment = (newValue - currentValue) / 20;
+        
+        var interval = setInterval(function() {
+            currentValue += increment;
+            if ((increment > 0 && currentValue >= newValue) || (increment < 0 && currentValue <= newValue)) {
+                currentValue = newValue;
+                clearInterval(interval);
+            }
+            $element.text(Math.floor(currentValue));
+        }, 50);
+    }
+    
+    /**
+     * Carica grafico statistiche
+     */
+    function loadStatsChart() {
+        $.ajax({
+            url: docmanager_ajax.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'docmanager_get_chart_data',
+                nonce: docmanager_ajax.nonce
+            },
+            success: function(response) {
+                if (response.success) {
+                    renderStatsChart(response.data);
+                }
+            }
+        });
+    }
+    
+    /**
+     * Renderizza grafico statistiche
+     */
+    function renderStatsChart(data) {
+        var ctx = document.getElementById('docmanager-stats-chart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Documenti caricati',
+                    data: data.uploads,
+                    borderColor: '#007cba',
+                    backgroundColor: 'rgba(0, 124, 186, 0.1)',
+                    fill: true
+                }, {
+                    label: 'Download',
+                    data: data.downloads,
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+    
+    /**
+     * Inizializza azioni rapide
+     */
+    function initQuickActions() {
+        // Toggle stato documento
+        $('.docmanager-toggle-status').on('click', function(e) {
+            e.preventDefault();
+            
+            var $btn = $(this);
+            var postId = $btn.data('post-id');
+            var currentStatus = $btn.data('current-status');
+            var newStatus = currentStatus === 'publish' ? 'draft' : 'publish';
+            
+            $.ajax({
+                url: docmanager_ajax.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'docmanager_toggle_status',
+                    document_id: postId,
+                    new_status: newStatus,
+                    nonce: docmanager_ajax.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        $btn.data('current-status', newStatus);
+                        $btn.text(newStatus === 'publish' ? 'Pubblica' : 'Bozza');
+                        
+                        var $statusBadge = $btn.closest('tr').find('.docmanager-status-badge');
+                        $statusBadge.removeClass('docmanager-status-publish docmanager-status-draft')
+                                   .addClass('docmanager-status-' + newStatus)
+                                   .text(newStatus === 'publish' ? 'Pubblicato' : 'Bozza');
+                                   
+                        showNotice('Stato aggiornato', 'success');
+                    } else {
+                        showNotice('Errore durante l\'aggiornamento dello stato', 'error');
+                    }
+                },
+                error: function() {
+                    showNotice('Errore di connessione', 'error');
+                }
+            });
+        });
+        
+        // Duplica documento
+        $('.docmanager-duplicate').on('click', function(e) {
+            e.preventDefault();
+            
+            var $btn = $(this);
+            var postId = $btn.data('post-id');
+            
+            $.ajax({
+                url: docmanager_ajax.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'docmanager_duplicate_document',
+                    document_id: postId,
+                    nonce: docmanager_ajax.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        showNotice('Documento duplicato con successo', 'success');
+                        location.reload();
+                    } else {
+                        showNotice('Errore durante la duplicazione', 'error');
+                    }
+                },
+                error: function() {
+                    showNotice('Errore di connessione', 'error');
+                }
+            });
+        });
+        
+        // Riassegna documento
+        $('.docmanager-reassign').on('click', function(e) {
+            e.preventDefault();
+            
+            var $btn = $(this);
+            var postId = $btn.data('post-id');
+            var currentUser = $btn.data('current-user');
+            
+            var newUser = prompt('Inserisci il nuovo utente (ID o email):', currentUser);
+            if (newUser && newUser !== currentUser) {
+                $.ajax({
+                    url: docmanager_ajax.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'docmanager_reassign_document',
+                        document_id: postId,
+                        new_user: newUser,
+                        nonce: docmanager_ajax.nonce
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            showNotice('Documento riassegnato con successo', 'success');
+                            location.reload();
+                        } else {
+                            showNotice('Errore durante la riassegnazione: ' + response.data.message, 'error');
+                        }
+                    },
+                    error: function() {
+                        showNotice('Errore di connessione', 'error');
+                    }
+                });
+            }
+        });
+    }
+    
+    /**
+     * Mostra notifica
+     */
+    function showNotice(message, type) {
+        var noticeClass = 'notice-' + (type || 'info');
+        var $notice = $('<div class="notice ' + noticeClass + ' is-dismissible"><p>' + message + '</p></div>');
+        
+        $('.wrap h1').after($notice);
+        
+        setTimeout(function() {
+            $notice.fadeOut(function() {
+                $(this).remove();
+            });
+        }, 5000);
+    }
+    
+    /**
+     * Drag & Drop per riordinamento
+     */
+    if ($('.docmanager-sortable').length) {
+        $('.docmanager-sortable').sortable({
+            handle: '.docmanager-drag-handle',
+            update: function(event, ui) {
+                var order = $(this).sortable('toArray', {attribute: 'data-id'});
+                
+                $.ajax({
+                    url: docmanager_ajax.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'docmanager_update_order',
+                        order: order,
+                        nonce: docmanager_ajax.nonce
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            showNotice('Ordine aggiornato', 'success');
+                        }
+                    }
+                });
+            }
+        });
+    }
+    
+    /**
+     * Ricerca in tempo reale
+     */
+    var searchTimeout;
+    $('#docmanager-search').on('input', function() {
+        clearTimeout(searchTimeout);
+        var query = $(this).val();
+        
+        searchTimeout = setTimeout(function() {
+            if (query.length >= 3 || query.length === 0) {
+                performSearch(query);
+            }
+        }, 300);
     });
-    return true;
-  }
-  
-  if (request.type === "CLEANUP_CACHE") {
-    cleanupOldCache().then(() => {
-      sendResponse({ success: true });
+    
+    /**
+     * Esegue ricerca
+     */
+    function performSearch(query) {
+        $.ajax({
+            url: docmanager_ajax.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'docmanager_search',
+                query: query,
+                nonce: docmanager_ajax.nonce
+            },
+            success: function(response) {
+                if (response.success) {
+                    $('#docmanager-search-results').html(response.data.html);
+                }
+            }
+        });
+    }
+    
+    /**
+     * Inizializza tooltips
+     */
+    if (typeof $.fn.tooltip === 'function') {
+        $('[data-toggle="tooltip"]').tooltip({
+            container: 'body'
+        });
+    }
+    
+    /**
+     * Gestione responsive tabelle
+     */
+    function makeTablesResponsive() {
+        $('.wp-list-table').each(function() {
+            var $table = $(this);
+            var $wrapper = $table.closest('.table-responsive');
+            
+            if ($wrapper.length === 0) {
+                $table.wrap('<div class="table-responsive"></div>');
+            }
+        });
+    }
+    
+    makeTablesResponsive();
+    
+    /**
+     * Auto-save bozze
+     */
+    var autoSaveInterval;
+    function startAutoSave() {
+        autoSaveInterval = setInterval(function() {
+            var $form = $('#post');
+            if ($form.length && $form.hasClass('docmanager-form')) {
+                var formData = $form.serialize();
+                
+                $.ajax({
+                    url: docmanager_ajax.ajax_url,
+                    type: 'POST',
+                    data: formData + '&action=docmanager_auto_save&nonce=' + docmanager_ajax.nonce,
+                    success: function(response) {
+                        if (response.success) {
+                            $('#docmanager-auto-save-notice').text('Bozza salvata alle ' + new Date().toLocaleTimeString()).fadeIn();
+                        }
+                    }
+                });
+            }
+        }, 60000); // Ogni minuto
+    }
+    
+    if ($('#post').hasClass('docmanager-form')) {
+        startAutoSave();
+    }
+    
+    /**
+     * Gestione avanzata file
+     */
+    $('.docmanager-file-actions').on('click', '.docmanager-action', function(e) {
+        e.preventDefault();
+        
+        var $btn = $(this);
+        var action = $btn.data('action');
+        var fileId = $btn.data('file-id');
+        
+        switch(action) {
+            case 'preview':
+                openFilePreview(fileId);
+                break;
+            case 'rename':
+                renameFile(fileId);
+                break;
+            case 'move':
+                moveFile(fileId);
+                break;
+            case 'copy':
+                copyFile(fileId);
+                break;
+        }
     });
-    return true;
-  }
-  
-  return false;
+    
+    /**
+     * Apre anteprima file
+     */
+    function openFilePreview(fileId) {
+        var modal = $('<div class="docmanager-modal"><div class="docmanager-modal-content"><span class="docmanager-modal-close">&times;</span><div class="docmanager-modal-body"></div></div></div>');
+        
+        $.ajax({
+            url: docmanager_ajax.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'docmanager_get_file_preview',
+                file_id: fileId,
+                nonce: docmanager_ajax.nonce
+            },
+            success: function(response) {
+                if (response.success) {
+                    modal.find('.docmanager-modal-body').html(response.data.html);
+                    $('body').append(modal);
+                    modal.fadeIn();
+                }
+            }
+        });
+        
+        modal.on('click', '.docmanager-modal-close, .docmanager-modal', function(e) {
+            if (e.target === this) {
+                modal.fadeOut(function() {
+                    modal.remove();
+                });
+            }
+        });
+    }
+    
+    /**
+     * Cleanup al termine
+     */
+    $(window).on('beforeunload', function() {
+        if (autoSaveInterval) {
+            clearInterval(autoSaveInterval);
+        }
+    });
 });
+
+// Funzioni globali per compatibilità
+window.docmanagerDeleteDocument = function(documentId) {
+    if (confirm(docmanager_ajax.confirm_delete)) {
+        jQuery.ajax({
+            url: docmanager_ajax.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'docmanager_delete_document',
+                document_id: documentId,
+                nonce: docmanager_ajax.nonce
+            },
+            success: function(response) {
+                if (response.success) {
+                    location.reload();
+                } else {
+                    alert('Errore durante l\'eliminazione: ' + response.data);
+                }
+            },
+            error: function() {
+                alert('Errore di connessione');
+            }
+        });
+    }
+};
