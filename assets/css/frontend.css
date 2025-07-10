@@ -108,6 +108,7 @@
 .docmanager-doc-actions {
     display: flex;
     gap: 10px;
+    align-items: center;
 }
 
 .docmanager-btn {
@@ -120,6 +121,7 @@
     transition: all 0.2s;
     cursor: pointer;
     border: none;
+    position: relative;
 }
 
 .docmanager-btn-download {
@@ -141,7 +143,113 @@
     background: #e0e0e0;
 }
 
+/* Action buttons icons */
+.docmanager-action-buttons {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.docmanager-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: #f0f0f0;
+    cursor: pointer;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 16px;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.docmanager-action-btn:hover {
+    background: #e0e0e0;
+    transform: translateY(-1px);
+}
+
+.docmanager-action-btn.view:hover {
+    background: #0073aa;
+    color: white;
+}
+
+.docmanager-action-btn.download:hover {
+    background: #00a32a;
+    color: white;
+}
+
+.docmanager-action-btn.edit:hover {
+    background: #996600;
+    color: white;
+}
+
+.docmanager-action-btn.delete:hover {
+    background: #d63638;
+    color: white;
+}
+
+/* Tooltip migliorato */
+.docmanager-action-btn::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 110%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.docmanager-action-btn::before {
+    content: '';
+    position: absolute;
+    bottom: 105%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid #333;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+    z-index: 1000;
+}
+
+.docmanager-action-btn:hover::after,
+.docmanager-action-btn:hover::before {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Assicura che i link funzionino correttamente */
+.docmanager-action-btn[href] {
+    color: inherit;
+}
+
+.docmanager-action-btn[href]:hover {
+    text-decoration: none;
+}
+
 /* Grid Layout */
+.docmanager-documents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
 .docmanager-documents-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -188,6 +296,12 @@
     margin-bottom: 15px;
     font-size: 13px;
     color: #666;
+}
+
+.docmanager-card-actions {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
 }
 
 /* Table Layout */
@@ -719,6 +833,23 @@
 
 .docmanager-remove-file:hover {
     background: #b32d2e;
+}
+
+/* Fix per tooltip che non appare */
+.docmanager-action-btn[title]:hover::after {
+    content: attr(title) !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Specifico per i link con download */
+.docmanager-action-btn[download] {
+    color: inherit;
+}
+
+.docmanager-action-btn[download]:hover {
+    color: white;
+    text-decoration: none;
 }
 
 /* Responsive Design */

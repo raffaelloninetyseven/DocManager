@@ -24,6 +24,44 @@ jQuery(document).ready(function($) {
         }
     });
     
+    // Fix per i link download - previeni comportamento default errato
+    $(document).on('click', '.docmanager-action-btn.download', function(e) {
+        e.stopPropagation();
+        const href = $(this).attr('href');
+        if (href) {
+            window.open(href, '_blank');
+        }
+    });
+    
+    // Fix per i link view
+    $(document).on('click', '.docmanager-action-btn.view', function(e) {
+        e.stopPropagation();
+        const href = $(this).attr('href');
+        if (href) {
+            window.open(href, '_blank');
+        }
+    });
+    
+    // Gestione bottoni con azioni specifiche
+    $(document).on('click', '.docmanager-action-btn.edit', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const docId = $(this).data('doc-id');
+        if (docId) {
+            // Implementa logica di edit
+            console.log('Edit document', docId);
+        }
+    });
+    
+    $(document).on('click', '.docmanager-action-btn.delete', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const docId = $(this).data('doc-id');
+        if (docId && confirm('Sei sicuro di voler eliminare questo documento?')) {
+            deleteDocument(docId);
+        }
+    });
+    
     function handleFileUpload(form) {
         const fileInput = form.find('input[type="file"]')[0];
         const file = fileInput.files[0];
@@ -50,6 +88,17 @@ jQuery(document).ready(function($) {
         formData.append('doc_description', form.find('textarea[name="doc_description"]').val());
         formData.append('doc_category', form.find('input[name="doc_category"]').val());
         formData.append('doc_tags', form.find('input[name="doc_tags"]').val());
+        
+        // Gestione visibilità documento
+        const visibilitySelect = form.find('select[name="doc_visibility"]');
+        if (visibilitySelect.length) {
+            formData.append('doc_visibility', visibilitySelect.val());
+        }
+        
+        const userSelect = form.find('select[name="doc_specific_user"]');
+        if (userSelect.length && userSelect.val()) {
+            formData.append('doc_specific_user', userSelect.val());
+        }
         
         // Mostra progress bar
         progressContainer.show();
@@ -278,6 +327,40 @@ jQuery(document).ready(function($) {
         `;
     }
     
+    function deleteDocument(docId) {
+        $.ajax({
+            url: docmanager_frontend.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'docmanager_delete_document',
+                document_id: docId,
+                nonce: docmanager_frontend.nonce
+            },
+            success: function(response) {
+                let data;
+                try {
+                    data = typeof response === 'string' ? JSON.parse(response) : response;
+                } catch (e) {
+                    showMessage('error', 'Errore nel parsing della risposta.');
+                    return;
+                }
+                
+                if (data.success) {
+                    showMessage('success', 'Documento eliminato con successo!');
+                    // Rimuovi elemento dalla pagina
+                    $(`[data-doc-id="${docId}"]`).fadeOut(300, function() {
+                        $(this).remove();
+                    });
+                } else {
+                    showMessage('error', data.message || 'Errore durante l\'eliminazione.');
+                }
+            },
+            error: function() {
+                showMessage('error', 'Errore di connessione.');
+            }
+        });
+    }
+    
     function updateProgress(percent) {
         $('.progress-fill').css('width', percent + '%');
         $('.progress-percentage').text(Math.round(percent) + '%');
@@ -350,5 +433,4 @@ jQuery(document).ready(function($) {
         // Questa è una versione semplificata - in realtà il nonce viene generato lato server
         return docmanager_frontend.nonce;
     }
-    
 });

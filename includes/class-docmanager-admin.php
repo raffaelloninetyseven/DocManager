@@ -23,6 +23,7 @@ class DocManager_Admin {
         add_action('wp_ajax_docmanager_remove_permission', array($this, 'ajax_remove_permission'));
         add_action('wp_ajax_docmanager_auto_save_setting', array($this, 'ajax_auto_save_setting'));
         add_action('wp_ajax_docmanager_bulk_action', array($this, 'ajax_bulk_action'));
+		add_action('wp_ajax_docmanager_update_permissions', array($this, 'ajax_update_permissions'));
     }
     
     public function add_admin_menu() {
@@ -190,6 +191,46 @@ class DocManager_Admin {
                                     <th><label for="doc_tags">Tags</label></th>
                                     <td><input type="text" id="doc_tags" name="doc_tags" class="regular-text" placeholder="Separati da virgola"></td>
                                 </tr>
+                                <tr>
+                                    <th><label for="document_visibility">Visibilità Documento</label></th>
+                                    <td>
+                                        <select id="document_visibility" name="document_visibility" class="regular-text">
+                                            <option value="uploader_only">Solo chi carica</option>
+                                            <option value="logged_users">Tutti gli utenti loggati</option>
+                                            <option value="everyone">Tutti (pubblico)</option>
+                                            <option value="specific_user">Utente specifico</option>
+                                            <option value="specific_role">Ruolo specifico</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr id="specific_user_row" style="display: none;">
+                                    <th><label for="specific_user_id">Seleziona Utente</label></th>
+                                    <td>
+                                        <select id="specific_user_id" name="specific_user_id" class="regular-text">
+                                            <option value="">Seleziona un utente...</option>
+                                            <?php
+                                            $users = get_users();
+                                            foreach ($users as $user) {
+                                                echo '<option value="' . $user->ID . '">' . esc_html($user->display_name) . ' (' . $user->user_login . ')</option>';
+                                            }
+                                            ?>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr id="specific_role_row" style="display: none;">
+                                    <th><label for="specific_role">Seleziona Ruolo</label></th>
+                                    <td>
+                                        <select id="specific_role" name="specific_role" class="regular-text">
+                                            <option value="">Seleziona un ruolo...</option>
+                                            <?php
+                                            $roles = wp_roles()->roles;
+                                            foreach ($roles as $role_key => $role) {
+                                                echo '<option value="' . $role_key . '">' . esc_html($role['name']) . '</option>';
+                                            }
+                                            ?>
+                                        </select>
+                                    </td>
+                                </tr>
                             </table>
                         </div>
                         
@@ -266,6 +307,7 @@ class DocManager_Admin {
                                     Categoria
                                     <span class="sorting-indicator"></span>
                                 </th>
+                                <th class="column-header">Assegnato a</th>
                                 <th class="column-header sortable" data-column="file_type">
                                     Tipo
                                     <span class="sorting-indicator"></span>
@@ -302,6 +344,9 @@ class DocManager_Admin {
                                         <span class="no-category">—</span>
                                     <?php endif; ?>
                                 </td>
+                                <td>
+                                    <?php echo $this->get_document_assignments($doc->id); ?>
+                                </td>
                                 <td data-column="file_type">
                                     <span class="file-type"><?php echo $this->get_file_type_icon($doc->file_type); ?> <?php echo $this->get_file_type_label($doc->file_type); ?></span>
                                 </td>
@@ -325,29 +370,25 @@ class DocManager_Admin {
                                         <a href="<?php echo esc_url($doc->file_path); ?>" 
                                            class="docmanager-action-btn view" 
                                            target="_blank" 
-                                           data-tooltip="Visualizza">
+                                           title="Visualizza">
                                             👁️
                                         </a>
                                         <a href="<?php echo esc_url($doc->file_path); ?>" 
                                            class="docmanager-action-btn download" 
                                            download="<?php echo esc_attr($doc->file_name); ?>"
-                                           data-tooltip="Download">
+                                           title="Download">
                                             📥
                                         </a>
-                                        <button class="docmanager-action-btn preview" 
-                                                data-document-url="<?php echo esc_attr($doc->file_path); ?>"
-                                                data-document-title="<?php echo esc_attr($doc->title); ?>"
-                                                data-tooltip="Anteprima">
-                                            🔍
-                                        </button>
                                         <button class="docmanager-action-btn edit" 
                                                 data-doc-id="<?php echo $doc->id; ?>"
-                                                data-tooltip="Modifica">
+                                                title="Modifica Permessi"
+                                                onclick="openPermissionsModal(<?php echo $doc->id; ?>)">
                                             ✏️
                                         </button>
                                         <button class="docmanager-action-btn delete" 
                                                 data-doc-id="<?php echo $doc->id; ?>"
-                                                data-tooltip="Elimina">
+                                                title="Elimina"
+                                                onclick="deleteDocument(<?php echo $doc->id; ?>)">
                                             🗑️
                                         </button>
                                     </div>
@@ -376,6 +417,150 @@ class DocManager_Admin {
                 </form>
             </div>
         </div>
+        
+        <!-- Modal Permessi -->
+        <div id="permissions-modal" class="docmanager-modal-overlay" style="display: none;">
+            <div class="docmanager-modal">
+                <div class="docmanager-modal-header">
+                    <h3>Gestisci Permessi Documento</h3>
+                    <button class="modal-close" onclick="closePermissionsModal()">&times;</button>
+                </div>
+                <div class="docmanager-modal-body">
+                    <form id="permissions-form">
+                        <table class="form-table">
+                            <tr>
+                                <th><label for="permission-visibility">Visibilità</label></th>
+                                <td>
+                                    <select id="permission-visibility" name="visibility">
+                                        <option value="uploader_only">Solo chi ha caricato</option>
+                                        <option value="logged_users">Tutti gli utenti loggati</option>
+                                        <option value="everyone">Tutti (pubblico)</option>
+                                        <option value="specific_user">Utente specifico</option>
+                                        <option value="specific_role">Ruolo specifico</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr id="permission-user-row" style="display: none;">
+                                <th><label for="permission-user">Utente</label></th>
+                                <td>
+                                    <select id="permission-user" name="user_id">
+                                        <option value="">Seleziona utente...</option>
+                                        <?php
+                                        foreach ($users as $user) {
+                                            echo '<option value="' . $user->ID . '">' . esc_html($user->display_name) . ' (' . $user->user_login . ')</option>';
+                                        }
+                                        ?>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr id="permission-role-row" style="display: none;">
+                                <th><label for="permission-role">Ruolo</label></th>
+                                <td>
+                                    <select id="permission-role" name="role">
+                                        <option value="">Seleziona ruolo...</option>
+                                        <?php
+                                        foreach ($roles as $role_key => $role) {
+                                            echo '<option value="' . $role_key . '">' . esc_html($role['name']) . '</option>';
+                                        }
+                                        ?>
+                                    </select>
+                                </td>
+                            </tr>
+                        </table>
+                        <p class="submit">
+                            <button type="submit" class="button-primary">Salva Permessi</button>
+                            <button type="button" class="button" onclick="closePermissionsModal()">Annulla</button>
+                        </p>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <script>
+        jQuery(document).ready(function($) {
+            // Gestione visibilità campi upload
+            $('#document_visibility').on('change', function() {
+                const value = $(this).val();
+                $('#specific_user_row, #specific_role_row').hide();
+                
+                if (value === 'specific_user') {
+                    $('#specific_user_row').show();
+                } else if (value === 'specific_role') {
+                    $('#specific_role_row').show();
+                }
+            });
+            
+            // Gestione visibilità campi modal permessi
+            $('#permission-visibility').on('change', function() {
+                const value = $(this).val();
+                $('#permission-user-row, #permission-role-row').hide();
+                
+                if (value === 'specific_user') {
+                    $('#permission-user-row').show();
+                } else if (value === 'specific_role') {
+                    $('#permission-role-row').show();
+                }
+            });
+            
+            // Form permessi
+            $('#permissions-form').on('submit', function(e) {
+                e.preventDefault();
+                
+                const docId = $(this).data('doc-id');
+                const formData = new FormData(this);
+                formData.append('action', 'docmanager_update_permissions');
+                formData.append('document_id', docId);
+                formData.append('nonce', '<?php echo wp_create_nonce("docmanager_permissions"); ?>');
+                
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        if (response.success) {
+                            location.reload();
+                        } else {
+                            alert('Errore: ' + response.message);
+                        }
+                    }
+                });
+            });
+        });
+        
+        function openPermissionsModal(docId) {
+            $('#permissions-form').data('doc-id', docId);
+            $('#permissions-modal').show();
+        }
+        
+        function closePermissionsModal() {
+            $('#permissions-modal').hide();
+        }
+        
+        function deleteDocument(docId) {
+            if (!confirm('Sei sicuro di voler eliminare questo documento?')) {
+                return;
+            }
+            
+            jQuery.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'docmanager_delete_document',
+                    document_id: docId,
+                    nonce: '<?php echo wp_create_nonce("docmanager_nonce"); ?>'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        location.reload();
+                    } else {
+                        alert('Errore: ' + response.message);
+                    }
+                }
+            });
+        }
+        </script>
         
         <style>
         .docmanager-upload-grid {
@@ -418,45 +603,54 @@ class DocManager_Admin {
             margin: 0;
         }
         
-        .docmanager-list-header {
+        .docmanager-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 100000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .docmanager-modal {
+            background: white;
+            border-radius: 4px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .docmanager-modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            padding: 20px;
+            border-bottom: 1px solid #c3c4c7;
+            background: #f6f7f7;
         }
         
-        .docmanager-filter-bar {
-            display: flex;
-            gap: 10px;
+        .docmanager-modal-body {
+            padding: 20px;
         }
         
-        .search-input, .filter-select {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        
-        .category-tag {
-            background: #e7f3ff;
-            color: #0073aa;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-        }
-        
-        .no-category {
-            color: #999;
-        }
-        
-        .file-type {
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #646970;
+            padding: 0;
+            width: 30px;
+            height: 30px;
             display: flex;
             align-items: center;
-            gap: 5px;
-        }
-        
-        .download-count {
-            font-weight: bold;
-            color: #0073aa;
+            justify-content: center;
         }
         
         .docmanager-action-buttons {
@@ -473,10 +667,27 @@ class DocManager_Admin {
             text-decoration: none;
             font-size: 14px;
             transition: background 0.2s;
+            position: relative;
         }
         
         .docmanager-action-btn:hover {
             background: #e0e0e0;
+        }
+        
+        .docmanager-action-btn:hover::after {
+            content: attr(title);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 1000;
+            margin-bottom: 5px;
         }
         
         .docmanager-action-btn.delete:hover {
@@ -484,22 +695,62 @@ class DocManager_Admin {
             color: white;
         }
         
-        @media (max-width: 768px) {
-            .docmanager-upload-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .docmanager-list-header {
-                flex-direction: column;
-                gap: 15px;
-            }
-            
-            .docmanager-filter-bar {
-                flex-wrap: wrap;
-            }
+        .assignment-badge {
+            display: inline-block;
+            background: #e7f3ff;
+            color: #0073aa;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            margin: 1px;
+        }
+        
+        .assignment-badge.user {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+        
+        .assignment-badge.role {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+        
+        .assignment-badge.public {
+            background: #f3e5f5;
+            color: #7b1fa2;
         }
         </style>
         <?php
+    }
+	
+	private function get_document_assignments($document_id) {
+        global $wpdb;
+        $permissions_table = $wpdb->prefix . 'docmanager_permissions';
+        
+        $permissions = $wpdb->get_results($wpdb->prepare(
+            "SELECT p.*, u.display_name as user_name 
+             FROM {$permissions_table} p
+             LEFT JOIN {$wpdb->users} u ON p.user_id = u.ID
+             WHERE p.document_id = %d",
+            $document_id
+        ));
+        
+        if (empty($permissions)) {
+            return '<span class="assignment-badge">Solo uploader</span>';
+        }
+        
+        $output = '';
+        foreach ($permissions as $perm) {
+            if ($perm->user_id) {
+                $output .= '<span class="assignment-badge user">👤 ' . esc_html($perm->user_name) . '</span>';
+            } elseif ($perm->user_role) {
+                $output .= '<span class="assignment-badge role">👥 ' . esc_html($perm->user_role) . '</span>';
+            } else {
+                $output .= '<span class="assignment-badge public">🌐 Pubblico</span>';
+            }
+        }
+        
+        return $output ?: '<span class="assignment-badge">Solo uploader</span>';
     }
     
     public function settings_page() {
@@ -964,6 +1215,92 @@ class DocManager_Admin {
         $result = $this->process_bulk_action($action, $document_ids);
         wp_die(json_encode($result));
     }
+	
+	public function ajax_update_permissions() {
+        if (!wp_verify_nonce($_POST['nonce'], 'docmanager_permissions')) {
+            wp_die(json_encode(array('success' => false, 'message' => 'Nonce verification failed')));
+        }
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(json_encode(array('success' => false, 'message' => 'Insufficient permissions')));
+        }
+        
+        $document_id = intval($_POST['document_id']);
+        $visibility = sanitize_text_field($_POST['visibility']);
+        $user_id = isset($_POST['user_id']) ? intval($_POST['user_id']) : null;
+        $role = isset($_POST['role']) ? sanitize_text_field($_POST['role']) : null;
+        
+        // Rimuovi permessi esistenti
+        global $wpdb;
+        $permissions_table = $wpdb->prefix . 'docmanager_permissions';
+        
+        $wpdb->delete($permissions_table, array('document_id' => $document_id), array('%d'));
+        
+        // Aggiungi nuovi permessi
+        $current_user_id = get_current_user_id();
+        
+        switch ($visibility) {
+            case 'everyone':
+                $wpdb->insert(
+                    $permissions_table,
+                    array(
+                        'document_id' => $document_id,
+                        'user_id' => null,
+                        'user_role' => null,
+                        'permission_type' => 'view',
+                        'granted_by' => $current_user_id
+                    ),
+                    array('%d', null, null, '%s', '%d')
+                );
+                break;
+                
+            case 'logged_users':
+                $roles = wp_roles()->roles;
+                foreach ($roles as $role_key => $role_data) {
+                    $wpdb->insert(
+                        $permissions_table,
+                        array(
+                            'document_id' => $document_id,
+                            'user_role' => $role_key,
+                            'permission_type' => 'view',
+                            'granted_by' => $current_user_id
+                        ),
+                        array('%d', '%s', '%s', '%d')
+                    );
+                }
+                break;
+                
+            case 'specific_user':
+                if ($user_id) {
+                    $wpdb->insert(
+                        $permissions_table,
+                        array(
+                            'document_id' => $document_id,
+                            'user_id' => $user_id,
+                            'permission_type' => 'view',
+                            'granted_by' => $current_user_id
+                        ),
+                        array('%d', '%d', '%s', '%d')
+                    );
+                }
+                break;
+                
+            case 'specific_role':
+                if ($role) {
+                    $wpdb->insert(
+                        $permissions_table,
+                        array(
+                            'document_id' => $document_id,
+                            'user_role' => $role,
+                            'permission_type' => 'view',
+                            'granted_by' => $current_user_id
+                        ),
+                        array('%d', '%s', '%s', '%d')
+                    );
+                }
+                break;
+        }
+    }
     
     // Helper Methods
     private function get_dashboard_stats() {
@@ -1164,8 +1501,16 @@ class DocManager_Admin {
                 'status' => 'active'
             );
             
-            $this->db->insert_document($document_data);
-            echo '<div class="notice notice-success"><p>Documento caricato con successo!</p></div>';
+            $result = $this->db->insert_document($document_data);
+            
+            if ($result) {
+                $document_id = $this->db->wpdb->insert_id;
+                
+                // Gestisci permessi
+                $this->assign_upload_permissions($document_id, $_POST);
+                
+                echo '<div class="notice notice-success"><p>Documento caricato con successo!</p></div>';
+            }
         }
     }
     
