@@ -251,7 +251,9 @@ class DocManager_Widget_View_Documents extends \Elementor\Widget_Base {
             echo '<i class="fa fa-folder"></i> ';
             $cat_names = array();
             foreach ($categories as $category) {
-                $cat_names[] = $category->name;
+                if (is_object($category)) {
+                    $cat_names[] = $category->name;
+                }
             }
             echo implode(', ', $cat_names);
             echo '</span>';

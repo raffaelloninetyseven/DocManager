@@ -325,7 +325,7 @@ class DocManager_Widget_Upload_Documents extends \Elementor\Widget_Base {
                             <?php foreach ($categories as $category): ?>
                                 <label>
                                     <input type="checkbox" name="doc_categories[]" value="<?php echo $category->term_id; ?>" />
-                                    <?php echo esc_html($category->name); ?>
+									<?php echo esc_html($category->name); ?>
                                 </label>
                             <?php endforeach; ?>
                         </div>

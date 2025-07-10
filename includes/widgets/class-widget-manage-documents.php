@@ -339,9 +339,11 @@ class DocManager_Widget_Manage_Documents extends \Elementor\Widget_Base {
                             <?php
                             $categories = get_terms(array('taxonomy' => 'doc_category', 'hide_empty' => false));
                             foreach ($categories as $category) {
-                                echo '<option value="' . $category->slug . '"' . selected($filter_category, $category->slug, false) . '>';
-                                echo esc_html($category->name);
-                                echo '</option>';
+                                if (is_object($category)) {
+                                    echo '<option value="' . $category->slug . '"' . selected($filter_category, $category->slug, false) . '>';
+                                    echo esc_html($category->name);
+                                    echo '</option>';
+                                }
                             }
                             ?>
                         </select>
@@ -498,7 +500,9 @@ class DocManager_Widget_Manage_Documents extends \Elementor\Widget_Base {
                                     if ($categories) {
                                         $cat_names = array();
                                         foreach ($categories as $cat) {
-                                            $cat_names[] = $cat->name;
+                                            if (is_object($cat)) {
+                                                $cat_names[] = $cat->name;
+                                            }
                                         }
                                         echo implode(', ', $cat_names);
                                     } else {
