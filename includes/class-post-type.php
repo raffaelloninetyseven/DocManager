@@ -17,7 +17,7 @@ class DocManager_PostType {
         add_action('manage_referto_posts_columns', array($this, 'customColumns'));
         add_action('manage_referto_posts_custom_column', array($this, 'customColumnContent'), 10, 2);
         add_filter('post_updated_messages', array($this, 'updateMessages'));
-}
+    }
     
     public function registerPostType() {
         $labels = array(
@@ -447,3 +447,4 @@ class DocManager_PostType {
         
         return $messages;
     }
+}
