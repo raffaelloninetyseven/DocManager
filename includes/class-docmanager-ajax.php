@@ -102,30 +102,31 @@ class DocManager_Ajax {
         $offset = ($page - 1) * $per_page;
         
         if (current_user_can('manage_options')) {
-            $documents = $this->db->get_all_documents($per_page, $offset);
-            $total = $this->db->get_documents_count();
-        } else {
-            $documents = $this->db->get_documents_by_user($user_id);
-            $total = count($documents);
-            $documents = array_slice($documents, $offset, $per_page);
-        }
+			$documents = $this->db->get_all_documents($per_page, $offset);
+			$total = $this->db->get_documents_count();
+		} else {
+			$all_user_docs = $this->db->get_documents_by_user($user_id);
+			$total = count($all_user_docs);
+			$documents = array_slice($all_user_docs, $offset, $per_page);
+		}
         
         $formatted_docs = array();
-        foreach ($documents as $doc) {
-            $formatted_docs[] = array(
-                'id' => $doc->id,
-                'title' => $doc->title,
-                'file_type' => strtoupper($doc->file_type),
-                'file_size' => DocManager::format_file_size($doc->file_size),
-                'upload_date' => date('d/m/Y H:i', strtotime($doc->upload_date)),
-                'notes' => $doc->notes,
-                'download_url' => add_query_arg(array(
-                    'action' => 'docmanager_download',
-                    'doc_id' => $doc->id,
-                    'nonce' => wp_create_nonce('docmanager_download_' . $doc->id)
-                ), admin_url('admin-ajax.php'))
-            );
-        }
+		foreach ($documents as $doc) {
+			$formatted_docs[] = array(
+				'id' => $doc->id,
+				'title' => $doc->title,
+				'file_type' => strtoupper($doc->file_type),
+				'file_size' => DocManager::format_file_size($doc->file_size),
+				'upload_date' => date('d/m/Y H:i', strtotime($doc->upload_date)),
+				'notes' => $doc->notes,
+				'user_name' => isset($doc->user_name) ? $doc->user_name : 'N/A',
+				'download_url' => add_query_arg(array(
+					'action' => 'docmanager_download',
+					'doc_id' => $doc->id,
+					'nonce' => wp_create_nonce('docmanager_download_' . $doc->id)
+				), admin_url('admin-ajax.php'))
+			);
+		}
         
         wp_send_json_success(array(
             'documents' => $formatted_docs,

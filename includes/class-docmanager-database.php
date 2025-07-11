@@ -17,17 +17,20 @@ class DocManager_Database {
     }
     
     public function get_documents_by_user($user_id) {
-        global $wpdb;
-        
-        $results = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$this->table_name} 
-            WHERE user_id = %d AND status = 'active' 
-            ORDER BY upload_date DESC",
-            $user_id
-        ));
-        
-        return $results;
-    }
+		global $wpdb;
+		
+		$results = $wpdb->get_results($wpdb->prepare(
+			"SELECT d.*, u.display_name as user_name, a.display_name as uploaded_by_name 
+			FROM {$this->table_name} d 
+			LEFT JOIN {$wpdb->users} u ON d.user_id = u.ID 
+			LEFT JOIN {$wpdb->users} a ON d.uploaded_by = a.ID 
+			WHERE d.user_id = %d AND d.status = 'active' 
+			ORDER BY d.upload_date DESC",
+			$user_id
+		));
+		
+		return $results;
+	}
     
     public function get_document_by_id($doc_id) {
         global $wpdb;

@@ -2,17 +2,15 @@
 /**
  * Plugin Name: DocManager
  * Description: Plugin per la gestione di referti medici con area riservata
- * Version: 0.4.0
+ * Version: 0.4.3.7
  * Author: SilverStudioDM
- * Requires PHP: 7.4
- * Requires at least: 5.0
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-define('DOCMANAGER_VERSION', '0.4.0');
+define('DOCMANAGER_VERSION', '0.4.3.7');
 define('DOCMANAGER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('DOCMANAGER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -31,17 +29,26 @@ class DocManager {
         $this->setup_database();
         $this->init_admin();
         $this->init_elementor_widgets();
+		
+		new DocManager_Admin_Bar();
     }
     
     private function load_dependencies() {
-        require_once DOCMANAGER_PLUGIN_DIR . 'includes/class-docmanager-database.php';
-        require_once DOCMANAGER_PLUGIN_DIR . 'includes/class-docmanager-admin.php';
-        require_once DOCMANAGER_PLUGIN_DIR . 'includes/class-docmanager-ajax.php';
-        require_once DOCMANAGER_PLUGIN_DIR . 'includes/class-docmanager-elementor.php';
-        require_once DOCMANAGER_PLUGIN_DIR . 'widgets/class-widget-upload.php';
-        require_once DOCMANAGER_PLUGIN_DIR . 'widgets/class-widget-manage.php';
-        require_once DOCMANAGER_PLUGIN_DIR . 'widgets/class-widget-view.php';
-    }
+		require_once DOCMANAGER_PLUGIN_DIR . 'includes/class-docmanager-database.php';
+		require_once DOCMANAGER_PLUGIN_DIR . 'includes/class-docmanager-repair.php';
+		require_once DOCMANAGER_PLUGIN_DIR . 'includes/class-docmanager-admin.php';
+		require_once DOCMANAGER_PLUGIN_DIR . 'includes/class-docmanager-admin-bar.php';
+		require_once DOCMANAGER_PLUGIN_DIR . 'includes/class-docmanager-ajax.php';
+		require_once DOCMANAGER_PLUGIN_DIR . 'includes/class-docmanager-elementor.php';
+		require_once DOCMANAGER_PLUGIN_DIR . 'includes/widgets/class-widget-upload.php';
+		require_once DOCMANAGER_PLUGIN_DIR . 'includes/widgets/class-widget-manage.php';
+		require_once DOCMANAGER_PLUGIN_DIR . 'includes/widgets/class-widget-view.php';
+		
+		// Controlla stato database all'init
+		if (is_admin()) {
+			DocManager_Repair::add_admin_notice();
+		}
+	}
     
     private function setup_database() {
         new DocManager_Database();
@@ -79,49 +86,112 @@ class DocManager {
         if (strpos($hook, 'docmanager') !== false) {
             wp_enqueue_script('docmanager-admin', DOCMANAGER_PLUGIN_URL . 'assets/js/admin.js', array('jquery'), DOCMANAGER_VERSION, true);
             wp_enqueue_style('docmanager-admin', DOCMANAGER_PLUGIN_URL . 'assets/css/admin.css', array(), DOCMANAGER_VERSION);
+			wp_enqueue_script('chart-js', 'https://cdn.jsdelivr.net/npm/chart.js', array(), '3.9.1', true);
         }
     }
     
     public function activate() {
-        global $wpdb;
-        
-        $table_name = $wpdb->prefix . 'docmanager_documents';
-        $charset_collate = $wpdb->get_charset_collate();
-        
-        $sql = "CREATE TABLE $table_name (
-            id mediumint(9) NOT NULL AUTO_INCREMENT,
-            title varchar(255) NOT NULL,
-            file_path varchar(500) NOT NULL,
-            file_type varchar(50) NOT NULL,
-            file_size int NOT NULL,
-            user_id int NOT NULL,
-            uploaded_by int NOT NULL,
-            upload_date datetime DEFAULT CURRENT_TIMESTAMP,
-            notes text,
-            status varchar(20) DEFAULT 'active',
-            PRIMARY KEY (id)
-        ) $charset_collate;";
-        
-        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-        dbDelta($sql);
-        
-        $upload_dir = wp_upload_dir();
-        $docmanager_dir = $upload_dir['basedir'] . '/docmanager';
-        if (!file_exists($docmanager_dir)) {
-            wp_mkdir_p($docmanager_dir);
-        }
-        
-        $htaccess_content = "Options -Indexes\n";
-        $htaccess_content .= "<FilesMatch \"\\.(php|php3|php4|php5|phtml)$\">\n";
-        $htaccess_content .= "    Require all denied\n";
-        $htaccess_content .= "</FilesMatch>\n";
-        
-        file_put_contents($docmanager_dir . '/.htaccess', $htaccess_content);
-        
-        add_option('docmanager_version', DOCMANAGER_VERSION);
-        add_option('docmanager_max_file_size', 10485760); // 10MB
-        add_option('docmanager_allowed_types', 'pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,zip');
-    }
+		global $wpdb;
+		
+		$table_name = $wpdb->prefix . 'docmanager_documents';
+		$charset_collate = $wpdb->get_charset_collate();
+		
+		$sql = "CREATE TABLE $table_name (
+			id mediumint(9) NOT NULL AUTO_INCREMENT,
+			title varchar(255) NOT NULL,
+			file_path varchar(500) NOT NULL,
+			file_type varchar(50) NOT NULL,
+			file_size int NOT NULL,
+			user_id int NOT NULL,
+			uploaded_by int NOT NULL,
+			upload_date datetime DEFAULT CURRENT_TIMESTAMP,
+			notes text,
+			status varchar(20) DEFAULT 'active',
+			PRIMARY KEY (id),
+			KEY user_id (user_id),
+			KEY uploaded_by (uploaded_by)
+		) $charset_collate;";
+		
+		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+		dbDelta($sql);
+		
+		// Forza aggiornamento se mancano colonne
+		$columns = $wpdb->get_col("DESCRIBE {$table_name}");
+		if (!in_array('user_id', $columns)) {
+			$wpdb->query("ALTER TABLE {$table_name} ADD COLUMN user_id int NOT NULL AFTER file_size");
+		}
+		if (!in_array('uploaded_by', $columns)) {
+			$wpdb->query("ALTER TABLE {$table_name} ADD COLUMN uploaded_by int NOT NULL AFTER user_id");
+		}
+		
+		// Verifica se la tabella esiste e ha tutte le colonne
+		$this->verify_table_structure();
+		
+		// Crea directory per upload
+		$upload_dir = wp_upload_dir();
+		$docmanager_dir = $upload_dir['basedir'] . '/docmanager';
+		if (!file_exists($docmanager_dir)) {
+			wp_mkdir_p($docmanager_dir);
+		}
+		
+		// Proteggi directory
+		$htaccess_content = "Options -Indexes\n";
+		$htaccess_content .= "<FilesMatch \"\\.(php|php3|php4|php5|phtml)$\">\n";
+		$htaccess_content .= "    Require all denied\n";
+		$htaccess_content .= "</FilesMatch>\n";
+		
+		file_put_contents($docmanager_dir . '/.htaccess', $htaccess_content);
+		
+		// Imposta opzioni default
+		add_option('docmanager_version', DOCMANAGER_VERSION);
+		add_option('docmanager_max_file_size', 10485760);
+		add_option('docmanager_allowed_types', 'pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,zip');
+	}
+
+	private function verify_table_structure() {
+		global $wpdb;
+		
+		$table_name = $wpdb->prefix . 'docmanager_documents';
+		
+		// Verifica se la tabella esiste
+		$table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'");
+		
+		if (!$table_exists) {
+			return false;
+		}
+		
+		// Verifica colonne necessarie
+		$required_columns = array(
+			'id', 'title', 'file_path', 'file_type', 'file_size', 
+			'user_id', 'uploaded_by', 'upload_date', 'notes', 'status'
+		);
+		
+		$existing_columns = $wpdb->get_col("DESCRIBE $table_name");
+		
+		foreach ($required_columns as $column) {
+			if (!in_array($column, $existing_columns)) {
+				// Aggiungi colonna mancante
+				$this->add_missing_column($table_name, $column);
+			}
+		}
+		
+		return true;
+	}
+
+	private function add_missing_column($table_name, $column) {
+		global $wpdb;
+		
+		$column_definitions = array(
+			'user_id' => 'ADD COLUMN user_id int NOT NULL DEFAULT 0',
+			'uploaded_by' => 'ADD COLUMN uploaded_by int NOT NULL DEFAULT 0',
+			'notes' => 'ADD COLUMN notes text',
+			'status' => 'ADD COLUMN status varchar(20) DEFAULT "active"'
+		);
+		
+		if (isset($column_definitions[$column])) {
+			$wpdb->query("ALTER TABLE $table_name " . $column_definitions[$column]);
+		}
+	}
     
     public function deactivate() {
         // Cleanup se necessario
