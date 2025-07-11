@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DocManager
  * Description: Plugin per la gestione documentale con area riservata integrato con Elementor
- * Version: 0.2.9
+ * Version: 0.2.9.1
  * Author: SilverStudioDM
  * Text Domain: docmanager
  * Domain Path: /languages
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('DOCMANAGER_VERSION', '0.2.9');
+define('DOCMANAGER_VERSION', '0.2.9.1');
 define('DOCMANAGER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('DOCMANAGER_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('DOCMANAGER_UPLOAD_DIR', WP_CONTENT_DIR . '/docmanager-files/');
@@ -29,8 +29,8 @@ class DocManager {
     }
     
     private function __construct() {
-        add_action('init', array($this, 'init'));
         add_action('plugins_loaded', array($this, 'loadTextDomain'));
+        add_action('init', array($this, 'init'), 5);
         add_action('admin_notices', array($this, 'adminNotices'));
         
         register_activation_hook(__FILE__, array($this, 'activate'));
@@ -39,17 +39,7 @@ class DocManager {
     
     public function init() {
         $this->loadClasses();
-        
-        new DocManager_Dashboard();
-        new DocManager_PostType();
-        new DocManager_Admin();
-        new DocManager_Security();
-        new DocManager_FileHandler();
-        
-        if (did_action('elementor/loaded')) {
-            new DocManager_Elementor();
-        }
-        
+        $this->initClasses();
         $this->checkSystemRequirements();
     }
     
@@ -74,6 +64,18 @@ class DocManager {
         }
     }
     
+    private function initClasses() {
+        new DocManager_PostType();
+        new DocManager_Dashboard();
+        new DocManager_Admin();
+        new DocManager_Security();
+        new DocManager_FileHandler();
+        
+        if (did_action('elementor/loaded')) {
+            new DocManager_Elementor();
+        }
+    }
+    
     public function loadTextDomain() {
         load_plugin_textdomain('docmanager', false, dirname(plugin_basename(__FILE__)) . '/languages/');
     }
@@ -83,8 +85,10 @@ class DocManager {
         $this->createTables();
         $this->setDefaultOptions();
         
-        flush_rewrite_rules();
+        $this->loadClasses();
+        new DocManager_PostType();
         
+        flush_rewrite_rules();
         add_option('docmanager_activation_redirect', true);
     }
     

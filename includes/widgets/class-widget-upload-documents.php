@@ -1,6 +1,6 @@
 <?php
 /**
- * Widget Elementor per caricare documenti - versione corretta
+ * Widget Elementor per caricare documenti
  */
 
 if (!defined('ABSPATH')) {
@@ -163,6 +163,10 @@ class DocManager_Widget_Upload_Documents extends \Elementor\Widget_Base {
     }
     
     private function getUserRoles() {
+        if (!function_exists('wp_roles')) {
+            return array();
+        }
+        
         $roles = wp_roles()->roles;
         $role_options = array();
         
@@ -197,12 +201,14 @@ class DocManager_Widget_Upload_Documents extends \Elementor\Widget_Base {
     }
     
     private function handleUpload($settings) {
-        if (!isset($_POST['docmanager_upload_nonce']) || !wp_verify_nonce($_POST['docmanager_upload_nonce'], 'docmanager_upload')) {
+        if (!isset($_POST['docmanager_upload_nonce']) || 
+            !wp_verify_nonce($_POST['docmanager_upload_nonce'], 'docmanager_upload')) {
             echo '<div class="docmanager-error">' . __('Errore di sicurezza', 'docmanager') . '</div>';
             return;
         }
         
-        if (!isset($_FILES['docmanager_file']) || $_FILES['docmanager_file']['error'] !== UPLOAD_ERR_OK) {
+        if (!isset($_FILES['docmanager_file']) || 
+            $_FILES['docmanager_file']['error'] !== UPLOAD_ERR_OK) {
             echo '<div class="docmanager-error">' . __('Nessun file selezionato o errore durante il caricamento', 'docmanager') . '</div>';
             return;
         }
@@ -227,6 +233,10 @@ class DocManager_Widget_Upload_Documents extends \Elementor\Widget_Base {
             return;
         }
         
+        if (!class_exists('DocManager_FileHandler')) {
+            require_once DOCMANAGER_PLUGIN_DIR . 'includes/class-file-handler.php';
+        }
+        
         $file_handler = new DocManager_FileHandler();
         $file_result = $file_handler->uploadFile($_FILES['docmanager_file'], $post_id);
         
@@ -243,7 +253,9 @@ class DocManager_Widget_Upload_Documents extends \Elementor\Widget_Base {
         update_post_meta($post_id, '_docmanager_unique_filename', $file_result['unique_filename']);
         update_post_meta($post_id, '_docmanager_upload_date', current_time('mysql'));
         
-        $assigned_user = current_user_can('manage_options') && isset($_POST['assigned_user']) && !empty($_POST['assigned_user']) 
+        $assigned_user = current_user_can('manage_options') && 
+                        isset($_POST['assigned_user']) && 
+                        !empty($_POST['assigned_user']) 
                         ? intval($_POST['assigned_user']) 
                         : get_current_user_id();
         update_post_meta($post_id, '_docmanager_assigned_user', $assigned_user);
@@ -266,8 +278,10 @@ class DocManager_Widget_Upload_Documents extends \Elementor\Widget_Base {
         
         echo '<div class="docmanager-success">' . esc_html($settings['success_message']) . '</div>';
         
-        $security = new DocManager_Security();
-        $security->logAccess($post_id, 'upload');
+        if (class_exists('DocManager_Security')) {
+            $security = new DocManager_Security();
+            $security->logAccess($post_id, 'upload');
+        }
     }
     
     private function renderUploadForm($settings) {
@@ -294,7 +308,8 @@ class DocManager_Widget_Upload_Documents extends \Elementor\Widget_Base {
                 
                 <div class="docmanager-field">
                     <label for="docmanager_file"><?php _e('File', 'docmanager'); ?> *</label>
-                    <input type="file" id="docmanager_file" name="docmanager_file" required accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif" />
+                    <input type="file" id="docmanager_file" name="docmanager_file" required 
+                           accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif" />
                     <small class="docmanager-help"><?php _e('Formati supportati: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF', 'docmanager'); ?></small>
                 </div>
                 
@@ -312,15 +327,17 @@ class DocManager_Widget_Upload_Documents extends \Elementor\Widget_Base {
                     </div>
                 <?php endif; ?>
                 
-                <?php if ($settings['show_categories'] === 'yes' && !empty($categories)): ?>
+                <?php if ($settings['show_categories'] === 'yes' && !empty($categories) && !is_wp_error($categories)): ?>
                     <div class="docmanager-field">
                         <label><?php _e('Categorie', 'docmanager'); ?></label>
                         <div class="docmanager-checkbox-group">
                             <?php foreach ($categories as $category): ?>
+                                <?php if (is_object($category)): ?>
                                 <label>
                                     <input type="checkbox" name="doc_categories[]" value="<?php echo $category->term_id; ?>" />
                                     <?php echo esc_html($category->name); ?>
                                 </label>
+                                <?php endif; ?>
                             <?php endforeach; ?>
                         </div>
                     </div>
@@ -329,7 +346,8 @@ class DocManager_Widget_Upload_Documents extends \Elementor\Widget_Base {
                 <?php if ($settings['show_tags'] === 'yes'): ?>
                     <div class="docmanager-field">
                         <label for="doc_tags"><?php _e('Tag', 'docmanager'); ?></label>
-                        <input type="text" id="doc_tags" name="doc_tags" placeholder="<?php _e('Separare i tag con virgole', 'docmanager'); ?>" />
+                        <input type="text" id="doc_tags" name="doc_tags" 
+                               placeholder="<?php _e('Separare i tag con virgole', 'docmanager'); ?>" />
                     </div>
                 <?php endif; ?>
                 

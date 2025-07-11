@@ -10,14 +10,14 @@ if (!defined('ABSPATH')) {
 class DocManager_PostType {
     
     public function __construct() {
-        add_action('init', array($this, 'registerPostType'));
-        add_action('init', array($this, 'registerTaxonomies'));
+        add_action('init', array($this, 'registerPostType'), 0);
+        add_action('init', array($this, 'registerTaxonomies'), 0);
         add_action('add_meta_boxes', array($this, 'addMetaBoxes'));
         add_action('save_post', array($this, 'saveMetaBox'));
         add_action('manage_referto_posts_columns', array($this, 'customColumns'));
         add_action('manage_referto_posts_custom_column', array($this, 'customColumnContent'), 10, 2);
         add_filter('post_updated_messages', array($this, 'updateMessages'));
-    }
+}
     
     public function registerPostType() {
         $labels = array(
@@ -36,24 +36,24 @@ class DocManager_PostType {
         $args = array(
             'labels' => $labels,
             'public' => false,
-            'publicly_queryable' => false,
+            'publicly_queryable' => true,
             'show_ui' => true,
             'show_in_menu' => 'docmanager-dashboard',
             'query_var' => true,
-            'rewrite' => false,
+            'rewrite' => array('slug' => 'referto'),
             'capability_type' => 'post',
             'capabilities' => array(
-                'create_posts' => 'manage_options',
-                'edit_posts' => 'manage_options',
-                'edit_others_posts' => 'manage_options',
-                'publish_posts' => 'manage_options',
-                'read_private_posts' => 'manage_options',
-                'delete_posts' => 'manage_options',
-                'delete_private_posts' => 'manage_options',
-                'delete_published_posts' => 'manage_options',
-                'delete_others_posts' => 'manage_options',
-                'edit_private_posts' => 'manage_options',
-                'edit_published_posts' => 'manage_options',
+                'create_posts' => 'edit_posts',
+                'edit_posts' => 'edit_posts',
+                'edit_others_posts' => 'edit_others_posts',
+                'publish_posts' => 'publish_posts',
+                'read_private_posts' => 'read_private_posts',
+                'delete_posts' => 'delete_posts',
+                'delete_private_posts' => 'delete_private_posts',
+                'delete_published_posts' => 'delete_published_posts',
+                'delete_others_posts' => 'delete_others_posts',
+                'edit_private_posts' => 'edit_private_posts',
+                'edit_published_posts' => 'edit_published_posts',
             ),
             'has_archive' => false,
             'hierarchical' => false,
@@ -86,7 +86,7 @@ class DocManager_PostType {
             'show_ui' => true,
             'show_admin_column' => true,
             'query_var' => true,
-            'rewrite' => false,
+            'rewrite' => array('slug' => 'doc-category'),
             'show_in_menu' => true,
         ));
         
@@ -110,7 +110,7 @@ class DocManager_PostType {
             'show_ui' => true,
             'show_admin_column' => true,
             'query_var' => true,
-            'rewrite' => false,
+            'rewrite' => array('slug' => 'doc-tag'),
             'show_in_menu' => true,
         ));
     }
@@ -173,13 +173,16 @@ class DocManager_PostType {
                             <?php endif; ?>
                             
                             <?php
-                            $file_handler = new DocManager_FileHandler();
-                            $download_url = $file_handler->getDownloadUrl($post->ID);
-                            if ($download_url): ?>
-                                <p><a href="<?php echo esc_url($download_url); ?>" class="button button-secondary" target="_blank">
-                                    <?php _e('Scarica File', 'docmanager'); ?>
-                                </a></p>
-                            <?php endif; ?>
+                            if (class_exists('DocManager_FileHandler')) {
+                                $file_handler = new DocManager_FileHandler();
+                                $download_url = $file_handler->getDownloadUrl($post->ID);
+                                if ($download_url): ?>
+                                    <p><a href="<?php echo esc_url($download_url); ?>" class="button button-secondary" target="_blank">
+                                        <?php _e('Scarica File', 'docmanager'); ?>
+                                    </a></p>
+                                <?php endif;
+                            }
+                            ?>
                         </div>
                     <?php else: ?>
                         <p class="description"><?php _e('Nessun file caricato', 'docmanager'); ?></p>
@@ -247,6 +250,11 @@ class DocManager_PostType {
     }
     
     public function filePreviewMetaBox($post) {
+        if (!class_exists('DocManager_FileHandler')) {
+            echo '<p>' . __('File handler non disponibile', 'docmanager') . '</p>';
+            return;
+        }
+        
         $file_handler = new DocManager_FileHandler();
         $file_info = $file_handler->getFileInfo($post->ID);
         
@@ -285,6 +293,10 @@ class DocManager_PostType {
             return;
         }
         
+        if (get_post_type($post_id) !== 'referto') {
+            return;
+        }
+        
         if (isset($_POST['docmanager_assigned_user'])) {
             update_post_meta($post_id, '_docmanager_assigned_user', sanitize_text_field($_POST['docmanager_assigned_user']));
         }
@@ -298,6 +310,10 @@ class DocManager_PostType {
         }
         
         if (isset($_FILES['docmanager_file']) && $_FILES['docmanager_file']['error'] === UPLOAD_ERR_OK) {
+            if (!class_exists('DocManager_FileHandler')) {
+                return;
+            }
+            
             $file_handler = new DocManager_FileHandler();
             
             $old_file_path = $file_handler->getFileInfo($post_id);
@@ -363,6 +379,11 @@ class DocManager_PostType {
                 break;
                 
             case 'file_info':
+                if (!class_exists('DocManager_FileHandler')) {
+                    echo '<span style="color: #d63638;">' . __('File handler non disponibile', 'docmanager') . '</span>';
+                    break;
+                }
+                
                 $file_handler = new DocManager_FileHandler();
                 $file_info = $file_handler->getFileInfo($post_id);
                 
@@ -426,4 +447,3 @@ class DocManager_PostType {
         
         return $messages;
     }
-}
