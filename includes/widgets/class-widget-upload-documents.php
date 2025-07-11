@@ -1,6 +1,6 @@
 <?php
 /**
- * Widget Elementor per caricare documenti
+ * Widget Elementor per caricare documenti - versione corretta
  */
 
 if (!defined('ABSPATH')) {
@@ -129,7 +129,6 @@ class DocManager_Widget_Upload_Documents extends \Elementor\Widget_Base {
         
         $this->end_controls_section();
         
-        // Sezione Style
         $this->start_controls_section(
             'style_section',
             array(
@@ -177,13 +176,11 @@ class DocManager_Widget_Upload_Documents extends \Elementor\Widget_Base {
     protected function render() {
         $settings = $this->get_settings_for_display();
         
-        // Verificare se l'utente è loggato
         if (!is_user_logged_in()) {
             echo '<div class="docmanager-notice">' . __('Devi effettuare il login per caricare documenti.', 'docmanager') . '</div>';
             return;
         }
         
-        // Verificare i permessi
         $user = wp_get_current_user();
         $allowed_roles = $settings['allowed_roles'];
         
@@ -192,30 +189,32 @@ class DocManager_Widget_Upload_Documents extends \Elementor\Widget_Base {
             return;
         }
         
-        // Gestire l'upload
         if (isset($_POST['docmanager_upload_submit'])) {
-            $this->handleUpload();
+            $this->handleUpload($settings);
         }
         
         $this->renderUploadForm($settings);
     }
     
-    private function handleUpload() {
-        // Verificare nonce
+    private function handleUpload($settings) {
         if (!isset($_POST['docmanager_upload_nonce']) || !wp_verify_nonce($_POST['docmanager_upload_nonce'], 'docmanager_upload')) {
             echo '<div class="docmanager-error">' . __('Errore di sicurezza', 'docmanager') . '</div>';
             return;
         }
         
-        // Verificare che sia stato caricato un file
         if (!isset($_FILES['docmanager_file']) || $_FILES['docmanager_file']['error'] !== UPLOAD_ERR_OK) {
             echo '<div class="docmanager-error">' . __('Nessun file selezionato o errore durante il caricamento', 'docmanager') . '</div>';
             return;
         }
         
-        // Creare il post
+        $title = sanitize_text_field($_POST['document_title']);
+        if (empty($title)) {
+            echo '<div class="docmanager-error">' . __('Il titolo del documento è obbligatorio', 'docmanager') . '</div>';
+            return;
+        }
+        
         $post_data = array(
-            'post_title' => sanitize_text_field($_POST['document_title']),
+            'post_title' => $title,
             'post_type' => 'referto',
             'post_status' => 'publish',
             'post_author' => get_current_user_id(),
@@ -223,12 +222,11 @@ class DocManager_Widget_Upload_Documents extends \Elementor\Widget_Base {
         
         $post_id = wp_insert_post($post_data);
         
-        if (is_wp_error($post_id)) {
+        if (is_wp_error($post_id) || !$post_id) {
             echo '<div class="docmanager-error">' . __('Errore durante la creazione del documento', 'docmanager') . '</div>';
             return;
         }
         
-        // Caricare il file
         $file_handler = new DocManager_FileHandler();
         $file_result = $file_handler->uploadFile($_FILES['docmanager_file'], $post_id);
         
@@ -238,40 +236,36 @@ class DocManager_Widget_Upload_Documents extends \Elementor\Widget_Base {
             return;
         }
         
-        // Salvare i metadati
         update_post_meta($post_id, '_docmanager_file_id', $file_result['file_id']);
         update_post_meta($post_id, '_docmanager_file_name', $file_result['file_name']);
         update_post_meta($post_id, '_docmanager_file_size', $file_result['file_size']);
         update_post_meta($post_id, '_docmanager_file_type', $file_result['file_type']);
+        update_post_meta($post_id, '_docmanager_unique_filename', $file_result['unique_filename']);
         update_post_meta($post_id, '_docmanager_upload_date', current_time('mysql'));
         
-        // Assegnare l'utente
-        $assigned_user = current_user_can('manage_options') && isset($_POST['assigned_user']) ? intval($_POST['assigned_user']) : get_current_user_id();
+        $assigned_user = current_user_can('manage_options') && isset($_POST['assigned_user']) && !empty($_POST['assigned_user']) 
+                        ? intval($_POST['assigned_user']) 
+                        : get_current_user_id();
         update_post_meta($post_id, '_docmanager_assigned_user', $assigned_user);
         
-        // Salvare note
-        if (isset($_POST['document_notes'])) {
+        if (isset($_POST['document_notes']) && !empty($_POST['document_notes'])) {
             update_post_meta($post_id, '_docmanager_notes', sanitize_textarea_field($_POST['document_notes']));
         }
         
-        // Salvare data scadenza
         if (isset($_POST['expiry_date']) && !empty($_POST['expiry_date'])) {
             update_post_meta($post_id, '_docmanager_expiry_date', sanitize_text_field($_POST['expiry_date']));
         }
         
-        // Assegnare categorie
         if (isset($_POST['doc_categories']) && is_array($_POST['doc_categories'])) {
             wp_set_post_terms($post_id, array_map('intval', $_POST['doc_categories']), 'doc_category');
         }
         
-        // Assegnare tag
         if (isset($_POST['doc_tags']) && !empty($_POST['doc_tags'])) {
             wp_set_post_terms($post_id, sanitize_text_field($_POST['doc_tags']), 'doc_tag');
         }
         
-        echo '<div class="docmanager-success">' . esc_html($this->get_settings_for_display()['success_message']) . '</div>';
+        echo '<div class="docmanager-success">' . esc_html($settings['success_message']) . '</div>';
         
-        // Log dell'azione
         $security = new DocManager_Security();
         $security->logAccess($post_id, 'upload');
     }
@@ -325,7 +319,7 @@ class DocManager_Widget_Upload_Documents extends \Elementor\Widget_Base {
                             <?php foreach ($categories as $category): ?>
                                 <label>
                                     <input type="checkbox" name="doc_categories[]" value="<?php echo $category->term_id; ?>" />
-									<?php echo esc_html($category->name); ?>
+                                    <?php echo esc_html($category->name); ?>
                                 </label>
                             <?php endforeach; ?>
                         </div>

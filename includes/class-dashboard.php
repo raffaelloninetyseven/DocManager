@@ -1,6 +1,6 @@
 <?php
 /**
- * Classe per gestire la dashboard principale di DocManager
+ * Classe per gestire la dashboard principale di DocManager - versione completa
  */
 
 if (!defined('ABSPATH')) {
@@ -262,12 +262,25 @@ class DocManager_Dashboard {
     }
     
     private function renderStats() {
-        $total_docs = wp_count_posts('referto')->publish + wp_count_posts('referto')->draft + wp_count_posts('referto')->private;
+        $counts = wp_count_posts('referto');
+        $total_docs = 0;
+        
+        if (isset($counts->publish)) {
+            $total_docs += intval($counts->publish);
+        }
+        if (isset($counts->draft)) {
+            $total_docs += intval($counts->draft);
+        }
+        if (isset($counts->private)) {
+            $total_docs += intval($counts->private);
+        }
+        
         $total_users = count(get_users());
         $upload_dir_size = $this->getUploadDirSize();
+        
         $recent_uploads = get_posts(array(
             'post_type' => 'referto',
-            'posts_per_page' => 1,
+            'posts_per_page' => -1,
             'meta_key' => '_docmanager_upload_date',
             'meta_query' => array(
                 array(
@@ -321,7 +334,7 @@ class DocManager_Dashboard {
         echo '<div class="docmanager-recent-list">';
         foreach ($recent_docs as $doc) {
             $user_id = get_post_meta($doc->ID, '_docmanager_assigned_user', true);
-            $user = get_userdata($user_id);
+            $user = $user_id ? get_userdata($user_id) : null;
             
             echo '<div class="docmanager-recent-item">';
             echo '<div>';
@@ -446,6 +459,7 @@ class DocManager_Dashboard {
             update_post_meta($post_id, '_docmanager_file_name', $file_result['file_name']);
             update_post_meta($post_id, '_docmanager_file_size', $file_result['file_size']);
             update_post_meta($post_id, '_docmanager_file_type', $file_result['file_type']);
+            update_post_meta($post_id, '_docmanager_unique_filename', $file_result['unique_filename']);
             update_post_meta($post_id, '_docmanager_upload_date', current_time('mysql'));
             update_post_meta($post_id, '_docmanager_assigned_user', get_current_user_id());
             
@@ -461,9 +475,11 @@ class DocManager_Dashboard {
         $size = 0;
         if (is_dir(DOCMANAGER_UPLOAD_DIR)) {
             $files = glob(DOCMANAGER_UPLOAD_DIR . '*');
-            foreach ($files as $file) {
-                if (is_file($file)) {
-                    $size += filesize($file);
+            if ($files) {
+                foreach ($files as $file) {
+                    if (is_file($file)) {
+                        $size += filesize($file);
+                    }
                 }
             }
         }
@@ -509,8 +525,21 @@ class DocManager_Dashboard {
             wp_die(__('Permessi insufficienti', 'docmanager'));
         }
         
+        $counts = wp_count_posts('referto');
+        $total_docs = 0;
+        
+        if (isset($counts->publish)) {
+            $total_docs += intval($counts->publish);
+        }
+        if (isset($counts->draft)) {
+            $total_docs += intval($counts->draft);
+        }
+        if (isset($counts->private)) {
+            $total_docs += intval($counts->private);
+        }
+        
         $stats = array(
-            'total_documents' => wp_count_posts('referto')->publish + wp_count_posts('referto')->draft,
+            'total_documents' => $total_docs,
             'total_users' => count(get_users()),
             'upload_size' => $this->getUploadDirSize(),
         );
