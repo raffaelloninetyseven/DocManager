@@ -1,864 +1,552 @@
-// DocManager Admin JavaScript
+/**
+ * DocManager Admin JavaScript
+ */
 
-jQuery(document).ready(function($) {
+(function($) {
+    'use strict';
     
-    // Inizializzazione componenti admin
-    initMetaboxes();
-    initBulkActions();
-    initSettings();
-    initLogManagement();
-    initFileManagement();
-    initDashboardStats();
-    initQuickActions();
+    $(document).ready(function() {
+        
+        // Initialize drag and drop for file upload
+        if ($('#document_file').length) {
+            initFileUploadDragDrop();
+        }
+        
+        // Initialize data tables enhancement
+        if ($('.wp-list-table').length) {
+            initTableEnhancements();
+        }
+        
+        // Initialize settings validation
+        if ($('.docmanager-settings-form').length) {
+            initSettingsValidation();
+        }
+        
+        // Initialize bulk actions
+        initBulkActions();
+        
+        // Initialize search functionality
+        initAdminSearch();
+        
+        // Initialize tooltips for admin
+        initAdminTooltips();
+    });
     
-    /**
-     * Inizializza funzionalità metabox
-     */
-    function initMetaboxes() {
-        // Gestione upload file nei metabox
-        $('.docmanager-file-upload').on('change', function() {
-            var $input = $(this);
-            var $preview = $input.closest('.docmanager-metabox').find('.docmanager-file-preview');
-            var file = $input[0].files[0];
+    // File upload drag and drop functionality
+    function initFileUploadDragDrop() {
+        var $fileInput = $('#document_file');
+        var $form = $fileInput.closest('form');
+        
+        // Create drop zone
+        var $dropZone = $('<div class="docmanager-dropzone" id="file-drop-zone">' +
+            '<div class="docmanager-dropzone-text">📁 Trascina qui il file o clicca per selezionare</div>' +
+            '<div class="docmanager-dropzone-subtext">Dimensione massima: ' + 
+            (window.docmanager_admin ? window.docmanager_admin.max_file_size : '10MB') + '</div>' +
+            '</div>');
+        
+        $fileInput.after($dropZone);
+        $fileInput.hide();
+        
+        // Handle drag and drop
+        $dropZone.on('dragenter dragover', function(e) {
+            e.preventDefault();
+            $(this).addClass('dragover');
+        });
+        
+        $dropZone.on('dragleave drop', function(e) {
+            e.preventDefault();
+            $(this).removeClass('dragover');
+        });
+        
+        $dropZone.on('drop', function(e) {
+            e.preventDefault();
+            $(this).removeClass('dragover');
             
-            if (file) {
-                var reader = new FileReader();
-                reader.onload = function(e) {
-                    if (file.type.startsWith('image/')) {
-                        $preview.html('<img src="' + e.target.result + '" style="max-width: 200px; max-height: 200px;">');
-                    } else {
-                        $preview.html('<p><strong>File selezionato:</strong> ' + file.name + '</p>');
-                    }
-                };
-                reader.readAsDataURL(file);
+            var files = e.originalEvent.dataTransfer.files;
+            if (files.length > 0) {
+                $fileInput[0].files = files;
+                updateDropZoneText(files[0].name);
             }
         });
         
-        // Rimozione file
-        $('.docmanager-remove-file').on('click', function(e) {
-            e.preventDefault();
-            
-            if (confirm('Sei sicuro di voler rimuovere questo file?')) {
-                var $btn = $(this);
-                var postId = $btn.data('post-id');
-                
-                $.ajax({
-                    url: docmanager_ajax.ajax_url,
-                    type: 'POST',
-                    data: {
-                        action: 'docmanager_remove_file',
-                        post_id: postId,
-                        nonce: docmanager_ajax.nonce
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            $btn.closest('.docmanager-file-info').fadeOut(function() {
-                                $(this).remove();
-                            });
-                            showNotice('File rimosso con successo', 'success');
-                        } else {
-                            showNotice('Errore durante la rimozione del file', 'error');
-                        }
-                    },
-                    error: function() {
-                        showNotice('Errore di connessione', 'error');
-                    }
+        $dropZone.on('click', function() {
+            $fileInput.click();
+        });
+        
+        $fileInput.on('change', function() {
+            if (this.files.length > 0) {
+                updateDropZoneText(this.files[0].name);
+            }
+        });
+        
+        function updateDropZoneText(filename) {
+            $dropZone.find('.docmanager-dropzone-text').html('✅ File selezionato: <strong>' + filename + '</strong>');
+        }
+    }
+    
+    // Table enhancements
+    function initTableEnhancements() {
+        // Add sorting capabilities
+        $('.wp-list-table th').each(function() {
+            var $th = $(this);
+            if (!$th.hasClass('no-sort')) {
+                $th.css('cursor', 'pointer').on('click', function() {
+                    sortTable($th);
                 });
             }
         });
+        
+        // Add row selection
+        if ($('.wp-list-table tbody tr').length) {
+            addRowSelection();
+        }
+        
+        // Add filters
+        addTableFilters();
     }
     
-    /**
-     * Inizializza azioni bulk
-     */
-    function initBulkActions() {
-        // Selezione tutti i checkbox
-        $('#cb-select-all-1, #cb-select-all-2').on('change', function() {
-            var checked = $(this).prop('checked');
-            $('.wp-list-table tbody input[type="checkbox"]').prop('checked', checked);
-            updateBulkActionsState();
-        });
+    function sortTable($header) {
+        var table = $header.closest('table');
+        var index = $header.index();
+        var rows = table.find('tbody tr').toArray();
+        var isAsc = $header.hasClass('sorted-asc');
         
-        // Gestione singoli checkbox
-        $('.wp-list-table tbody input[type="checkbox"]').on('change', function() {
-            updateBulkActionsState();
-        });
+        // Clear all sort classes
+        $header.siblings().removeClass('sorted-asc sorted-desc');
         
-        // Esecuzione azioni bulk
-        $('#doaction, #doaction2').on('click', function(e) {
-            var action = $(this).prev('select').val();
-            var selected = $('.wp-list-table tbody input[type="checkbox"]:checked');
+        // Sort rows
+        rows.sort(function(a, b) {
+            var aVal = $(a).find('td').eq(index).text().trim();
+            var bVal = $(b).find('td').eq(index).text().trim();
             
-            if (action === '-1') {
-                e.preventDefault();
-                return false;
+            // Try to parse as numbers
+            var aNum = parseFloat(aVal);
+            var bNum = parseFloat(bVal);
+            
+            if (!isNaN(aNum) && !isNaN(bNum)) {
+                return isAsc ? bNum - aNum : aNum - bNum;
+            } else {
+                return isAsc ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+            }
+        });
+        
+        // Update header class
+        $header.removeClass('sorted-asc sorted-desc').addClass(isAsc ? 'sorted-desc' : 'sorted-asc');
+        
+        // Rebuild table
+        table.find('tbody').empty().append(rows);
+    }
+    
+    function addRowSelection() {
+        var $table = $('.wp-list-table');
+        
+        // Add header checkbox
+        $table.find('thead tr').prepend('<th><input type="checkbox" id="select-all-docs"></th>');
+        
+        // Add row checkboxes
+        $table.find('tbody tr').each(function() {
+            var $row = $(this);
+            var docId = $row.find('.btn-delete').data('id') || $row.find('.btn-edit').data('id');
+            $row.prepend('<td><input type="checkbox" class="doc-checkbox" value="' + docId + '"></td>');
+        });
+        
+        // Handle select all
+        $('#select-all-docs').on('change', function() {
+            $('.doc-checkbox').prop('checked', this.checked);
+            updateBulkActions();
+        });
+        
+        // Handle individual selection
+        $('.doc-checkbox').on('change', function() {
+            updateBulkActions();
+            
+            var totalBoxes = $('.doc-checkbox').length;
+            var checkedBoxes = $('.doc-checkbox:checked').length;
+            
+            $('#select-all-docs').prop('indeterminate', checkedBoxes > 0 && checkedBoxes < totalBoxes);
+            $('#select-all-docs').prop('checked', checkedBoxes === totalBoxes);
+        });
+    }
+    
+    function addTableFilters() {
+        var $table = $('.wp-list-table');
+        if (!$table.length) return;
+        
+        var $filterRow = $('<tr class="filter-row"></tr>');
+        
+        $table.find('thead th').each(function(index) {
+            var $th = $(this);
+            var $filter = $('<td></td>');
+            
+            if ($th.text().trim() === 'Utente') {
+                $filter.html('<select class="table-filter" data-column="' + index + '">' +
+                    '<option value="">Tutti gli utenti</option>' +
+                    '</select>');
+                
+                // Populate user filter
+                var users = [];
+                $table.find('tbody tr').each(function() {
+                    var user = $(this).find('td').eq(index).text().trim();
+                    if (user && users.indexOf(user) === -1) {
+                        users.push(user);
+                    }
+                });
+                
+                users.forEach(function(user) {
+                    $filter.find('select').append('<option value="' + user + '">' + user + '</option>');
+                });
+                
+            } else if ($th.text().trim() === 'Tipo File') {
+                $filter.html('<select class="table-filter" data-column="' + index + '">' +
+                    '<option value="">Tutti i tipi</option>' +
+                    '</select>');
+                
+                // Populate file type filter
+                var types = [];
+                $table.find('tbody tr').each(function() {
+                    var type = $(this).find('td').eq(index).text().trim();
+                    if (type && types.indexOf(type) === -1) {
+                        types.push(type);
+                    }
+                });
+                
+                types.forEach(function(type) {
+                    $filter.find('select').append('<option value="' + type + '">' + type + '</option>');
+                });
+                
+            } else if (index > 0) {
+                $filter.html('<input type="text" class="table-filter" data-column="' + index + '" placeholder="Filtra...">');
             }
             
-            if (selected.length === 0) {
-                e.preventDefault();
-                alert('Seleziona almeno un elemento.');
-                return false;
+            $filterRow.append($filter);
+        });
+        
+        $table.find('thead').append($filterRow);
+        
+        // Handle filtering
+        $('.table-filter').on('change keyup', function() {
+            filterTable();
+        });
+    }
+    
+    function filterTable() {
+        var $table = $('.wp-list-table');
+        var filters = {};
+        
+        $('.table-filter').each(function() {
+            var column = $(this).data('column');
+            var value = $(this).val().toLowerCase();
+            if (value) {
+                filters[column] = value;
+            }
+        });
+        
+        $table.find('tbody tr').each(function() {
+            var $row = $(this);
+            var show = true;
+            
+            Object.keys(filters).forEach(function(column) {
+                var cellText = $row.find('td').eq(column).text().toLowerCase();
+                if (cellText.indexOf(filters[column]) === -1) {
+                    show = false;
+                }
+            });
+            
+            $row.toggle(show);
+        });
+    }
+    
+    // Bulk actions
+    function initBulkActions() {
+        if ($('.tablenav-top').length) {
+            var $bulkActions = $('<div class="alignleft actions bulkactions">' +
+                '<select id="bulk-action-selector-top">' +
+                '<option value="">Azioni di gruppo</option>' +
+                '<option value="delete">Elimina selezionati</option>' +
+                '<option value="change-user">Cambia utente</option>' +
+                '</select>' +
+                '<button type="button" id="doaction" class="button action" disabled>Applica</button>' +
+                '</div>');
+            
+            $('.tablenav-top').prepend($bulkActions);
+        }
+        
+        $('#doaction').on('click', function() {
+            var action = $('#bulk-action-selector-top').val();
+            var selectedIds = $('.doc-checkbox:checked').map(function() {
+                return this.value;
+            }).get();
+            
+            if (!action || selectedIds.length === 0) {
+                alert('Seleziona un\'azione e almeno un documento');
+                return;
             }
             
             if (action === 'delete') {
-                e.preventDefault();
-                if (confirm('Sei sicuro di voler eliminare ' + selected.length + ' elementi?')) {
-                    executeBulkAction(action, selected);
+                if (confirm('Sei sicuro di voler eliminare i ' + selectedIds.length + ' documenti selezionati?')) {
+                    bulkDelete(selectedIds);
                 }
-                return false;
-            }
-            
-            if (action === 'reassign') {
-                e.preventDefault();
-                var userId = prompt('Inserisci l\'ID dell\'utente a cui assegnare i documenti:');
-                if (userId) {
-                    executeBulkAction(action, selected, {user_id: userId});
-                }
-                return false;
+            } else if (action === 'change-user') {
+                showBulkUserChangeDialog(selectedIds);
             }
         });
     }
     
-    /**
-     * Aggiorna stato pulsanti azioni bulk
-     */
-    function updateBulkActionsState() {
-        var selected = $('.wp-list-table tbody input[type="checkbox"]:checked').length;
-        var total = $('.wp-list-table tbody input[type="checkbox"]').length;
+    function updateBulkActions() {
+        var checkedCount = $('.doc-checkbox:checked').length;
+        $('#doaction').prop('disabled', checkedCount === 0);
         
-        // Aggiorna stato "Seleziona tutto"
-        if (selected === 0) {
-            $('#cb-select-all-1, #cb-select-all-2').prop('indeterminate', false).prop('checked', false);
-        } else if (selected === total) {
-            $('#cb-select-all-1, #cb-select-all-2').prop('indeterminate', false).prop('checked', true);
+        if (checkedCount > 0) {
+            $('#bulk-action-selector-top option:first').text('Azioni di gruppo (' + checkedCount + ' selezionati)');
         } else {
-            $('#cb-select-all-1, #cb-select-all-2').prop('indeterminate', true);
-        }
-        
-        // Mostra/nascondi counter
-        if (selected > 0) {
-            $('.bulkactions .selected-count').remove();
-            $('.bulkactions').append('<span class="selected-count">(' + selected + ' selezionati)</span>');
-        } else {
-            $('.bulkactions .selected-count').remove();
+            $('#bulk-action-selector-top option:first').text('Azioni di gruppo');
         }
     }
     
-    /**
-     * Esegue azione bulk
-     */
-    function executeBulkAction(action, selected, data) {
-        var postIds = [];
-        selected.each(function() {
-            postIds.push($(this).val());
-        });
+    function bulkDelete(docIds) {
+        var completed = 0;
+        var total = docIds.length;
         
-        var ajaxData = {
-            action: 'docmanager_bulk_action',
-            bulk_action: action,
-            post_ids: postIds,
-            nonce: docmanager_ajax.nonce
-        };
+        showProgressDialog('Eliminazione in corso...', 0);
         
-        if (data) {
-            $.extend(ajaxData, data);
-        }
-        
-        $.ajax({
-            url: docmanager_ajax.ajax_url,
-            type: 'POST',
-            data: ajaxData,
-            beforeSend: function() {
-                $('#doaction, #doaction2').prop('disabled', true);
-                $('.bulkactions').append('<span class="spinner is-active"></span>');
-            },
-            success: function(response) {
-                if (response.success) {
-                    showNotice(response.data.message, 'success');
-                    location.reload();
-                } else {
-                    showNotice(response.data.message, 'error');
-                }
-            },
-            error: function() {
-                showNotice('Errore durante l\'esecuzione dell\'azione', 'error');
-            },
-            complete: function() {
-                $('#doaction, #doaction2').prop('disabled', false);
-                $('.bulkactions .spinner').remove();
-            }
-        });
-    }
-    
-    /**
-     * Inizializza pagina impostazioni
-     */
-    function initSettings() {
-        // Tabs nelle impostazioni
-        $('.docmanager-tab-nav button').on('click', function() {
-            var target = $(this).data('tab');
-            
-            $('.docmanager-tab-nav button').removeClass('active');
-            $('.docmanager-tab-content').removeClass('active');
-            
-            $(this).addClass('active');
-            $('#' + target).addClass('active');
-        });
-        
-        // Validazione form impostazioni
-        $('#docmanager-settings-form').on('submit', function(e) {
-            var maxSize = parseInt($('#max_file_size').val());
-            if (maxSize <= 0 || maxSize > 100) {
-                e.preventDefault();
-                alert('La dimensione massima deve essere compresa tra 1 e 100 MB');
-                return false;
-            }
-            
-            var allowedTypes = $('#allowed_file_types').val().trim();
-            if (!allowedTypes) {
-                e.preventDefault();
-                alert('Inserisci almeno un tipo di file consentito');
-                return false;
-            }
-        });
-        
-        // Reset impostazioni
-        $('.docmanager-reset-settings').on('click', function(e) {
-            e.preventDefault();
-            
-            if (confirm('Sei sicuro di voler ripristinare le impostazioni predefinite?')) {
-                $.ajax({
-                    url: docmanager_ajax.ajax_url,
-                    type: 'POST',
-                    data: {
-                        action: 'docmanager_reset_settings',
-                        nonce: docmanager_ajax.nonce
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            showNotice('Impostazioni ripristinate', 'success');
-                            location.reload();
-                        } else {
-                            showNotice('Errore durante il ripristino', 'error');
-                        }
-                    },
-                    error: function() {
-                        showNotice('Errore di connessione', 'error');
-                    }
-                });
-            }
-        });
-        
-        // Test configurazione email
-        $('.docmanager-test-email').on('click', function(e) {
-            e.preventDefault();
-            
-            var email = prompt('Inserisci l\'email di test:');
-            if (email) {
-                $.ajax({
-                    url: docmanager_ajax.ajax_url,
-                    type: 'POST',
-                    data: {
-                        action: 'docmanager_test_email',
-                        email: email,
-                        nonce: docmanager_ajax.nonce
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            showNotice('Email di test inviata', 'success');
-                        } else {
-                            showNotice('Errore invio email: ' + response.data.message, 'error');
-                        }
-                    },
-                    error: function() {
-                        showNotice('Errore di connessione', 'error');
-                    }
-                });
-            }
-        });
-    }
-    
-    /**
-     * Inizializza gestione log
-     */
-    function initLogManagement() {
-        // Filtri log
-        $('#log-filter-user, #log-filter-action, #log-filter-date').on('change', function() {
-            var $form = $(this).closest('form');
-            $form.submit();
-        });
-        
-        // Esporta log
-        $('.docmanager-export-logs').on('click', function(e) {
-            e.preventDefault();
-            
-            var format = $(this).data('format') || 'csv';
-            var url = docmanager_ajax.ajax_url + '?action=docmanager_export_logs&format=' + format + '&nonce=' + docmanager_ajax.nonce;
-            
-            // Aggiungere filtri correnti
-            var filters = {};
-            $('#log-filter-user, #log-filter-action, #log-filter-date').each(function() {
-                if ($(this).val()) {
-                    filters[$(this).attr('name')] = $(this).val();
-                }
-            });
-            
-            if (Object.keys(filters).length > 0) {
-                url += '&' + $.param(filters);
-            }
-            
-            window.location = url;
-        });
-        
-        // Cancella log
-        $('.docmanager-clear-logs').on('click', function(e) {
-            e.preventDefault();
-            
-            if (confirm('Sei sicuro di voler cancellare tutti i log? Questa azione non può essere annullata.')) {
-                $.ajax({
-                    url: docmanager_ajax.ajax_url,
-                    type: 'POST',
-                    data: {
-                        action: 'docmanager_clear_logs',
-                        nonce: docmanager_ajax.nonce
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            showNotice('Log cancellati con successo', 'success');
-                            location.reload();
-                        } else {
-                            showNotice('Errore durante la cancellazione dei log', 'error');
-                        }
-                    },
-                    error: function() {
-                        showNotice('Errore di connessione', 'error');
-                    }
-                });
-            }
-        });
-    }
-    
-    /**
-     * Inizializza gestione file
-     */
-    function initFileManagement() {
-        // Pulizia file orfani
-        $('.docmanager-cleanup-files').on('click', function(e) {
-            e.preventDefault();
-            
-            if (confirm('Questa operazione eliminerà i file non associati a nessun documento. Continuare?')) {
-                $.ajax({
-                    url: docmanager_ajax.ajax_url,
-                    type: 'POST',
-                    data: {
-                        action: 'docmanager_cleanup_files',
-                        nonce: docmanager_ajax.nonce
-                    },
-                    beforeSend: function() {
-                        $('.docmanager-cleanup-files').prop('disabled', true).text('Pulizia in corso...');
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            showNotice(response.data.message, 'success');
-                        } else {
-                            showNotice('Errore durante la pulizia', 'error');
-                        }
-                    },
-                    error: function() {
-                        showNotice('Errore di connessione', 'error');
-                    },
-                    complete: function() {
-                        $('.docmanager-cleanup-files').prop('disabled', false).text('Pulisci File Orfani');
-                    }
-                });
-            }
-        });
-        
-        // Controllo spazio disco
-        $('.docmanager-check-disk-space').on('click', function(e) {
-            e.preventDefault();
-            
+        docIds.forEach(function(docId) {
             $.ajax({
-                url: docmanager_ajax.ajax_url,
+                url: ajaxurl,
                 type: 'POST',
                 data: {
-                    action: 'docmanager_check_disk_space',
-                    nonce: docmanager_ajax.nonce
+                    action: 'docmanager_delete',
+                    nonce: $('#docmanager_nonce').val(),
+                    doc_id: docId
                 },
-                success: function(response) {
-                    if (response.success) {
-                        var data = response.data;
-                        var html = '<div class="docmanager-disk-info">';
-                        html += '<p><strong>Spazio totale:</strong> ' + data.total_space + '</p>';
-                        html += '<p><strong>Spazio utilizzato:</strong> ' + data.used_space + '</p>';
-                        html += '<p><strong>Spazio libero:</strong> ' + data.free_space + '</p>';
-                        html += '<p><strong>File DocManager:</strong> ' + data.docmanager_files + '</p>';
-                        html += '</div>';
-                        
-                        $('#docmanager-disk-info').html(html);
-                    } else {
-                        showNotice('Errore durante il controllo dello spazio', 'error');
-                    }
-                },
-                error: function() {
-                    showNotice('Errore di connessione', 'error');
-                }
-            });
-        });
-    }
-    
-    /**
-     * Inizializza statistiche dashboard
-     */
-    function initDashboardStats() {
-        // Ricarica statistiche
-        $('.docmanager-refresh-stats').on('click', function(e) {
-            e.preventDefault();
-            
-            $.ajax({
-                url: docmanager_ajax.ajax_url,
-                type: 'POST',
-                data: {
-                    action: 'docmanager_refresh_stats',
-                    nonce: docmanager_ajax.nonce
-                },
-                beforeSend: function() {
-                    $('.docmanager-stats').addClass('loading');
-                },
-                success: function(response) {
-                    if (response.success) {
-                        var stats = response.data;
-                        updateStatsDisplay(stats);
-                        showNotice('Statistiche aggiornate', 'success');
-                    } else {
-                        showNotice('Errore durante l\'aggiornamento delle statistiche', 'error');
-                    }
-                },
-                error: function() {
-                    showNotice('Errore di connessione', 'error');
-                },
-                complete: function() {
-                    $('.docmanager-stats').removeClass('loading');
-                }
-            });
-        });
-        
-        // Grafico statistiche
-        if ($('#docmanager-stats-chart').length) {
-            loadStatsChart();
-        }
-    }
-    
-    /**
-     * Aggiorna visualizzazione statistiche
-     */
-    function updateStatsDisplay(stats) {
-        $('.docmanager-stat-number').each(function() {
-            var $stat = $(this);
-            var key = $stat.data('stat');
-            if (stats[key] !== undefined) {
-                animateNumber($stat, stats[key]);
-            }
-        });
-    }
-    
-    /**
-     * Anima numero statistiche
-     */
-    function animateNumber($element, newValue) {
-        var currentValue = parseInt($element.text()) || 0;
-        var increment = (newValue - currentValue) / 20;
-        
-        var interval = setInterval(function() {
-            currentValue += increment;
-            if ((increment > 0 && currentValue >= newValue) || (increment < 0 && currentValue <= newValue)) {
-                currentValue = newValue;
-                clearInterval(interval);
-            }
-            $element.text(Math.floor(currentValue));
-        }, 50);
-    }
-    
-    /**
-     * Carica grafico statistiche
-     */
-    function loadStatsChart() {
-        $.ajax({
-            url: docmanager_ajax.ajax_url,
-            type: 'POST',
-            data: {
-                action: 'docmanager_get_chart_data',
-                nonce: docmanager_ajax.nonce
-            },
-            success: function(response) {
-                if (response.success) {
-                    renderStatsChart(response.data);
-                }
-            }
-        });
-    }
-    
-    /**
-     * Renderizza grafico statistiche
-     */
-    function renderStatsChart(data) {
-        var ctx = document.getElementById('docmanager-stats-chart').getContext('2d');
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: data.labels,
-                datasets: [{
-                    label: 'Documenti caricati',
-                    data: data.uploads,
-                    borderColor: '#007cba',
-                    backgroundColor: 'rgba(0, 124, 186, 0.1)',
-                    fill: true
-                }, {
-                    label: 'Download',
-                    data: data.downloads,
-                    borderColor: '#28a745',
-                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-    }
-    
-    /**
-     * Inizializza azioni rapide
-     */
-    function initQuickActions() {
-        // Toggle stato documento
-        $('.docmanager-toggle-status').on('click', function(e) {
-            e.preventDefault();
-            
-            var $btn = $(this);
-            var postId = $btn.data('post-id');
-            var currentStatus = $btn.data('current-status');
-            var newStatus = currentStatus === 'publish' ? 'draft' : 'publish';
-            
-            $.ajax({
-                url: docmanager_ajax.ajax_url,
-                type: 'POST',
-                data: {
-                    action: 'docmanager_toggle_status',
-                    document_id: postId,
-                    new_status: newStatus,
-                    nonce: docmanager_ajax.nonce
-                },
-                success: function(response) {
-                    if (response.success) {
-                        $btn.data('current-status', newStatus);
-                        $btn.text(newStatus === 'publish' ? 'Pubblica' : 'Bozza');
-                        
-                        var $statusBadge = $btn.closest('tr').find('.docmanager-status-badge');
-                        $statusBadge.removeClass('docmanager-status-publish docmanager-status-draft')
-                                   .addClass('docmanager-status-' + newStatus)
-                                   .text(newStatus === 'publish' ? 'Pubblicato' : 'Bozza');
-                                   
-                        showNotice('Stato aggiornato', 'success');
-                    } else {
-                        showNotice('Errore durante l\'aggiornamento dello stato', 'error');
-                    }
-                },
-                error: function() {
-                    showNotice('Errore di connessione', 'error');
-                }
-            });
-        });
-        
-        // Duplica documento
-        $('.docmanager-duplicate').on('click', function(e) {
-            e.preventDefault();
-            
-            var $btn = $(this);
-            var postId = $btn.data('post-id');
-            
-            $.ajax({
-                url: docmanager_ajax.ajax_url,
-                type: 'POST',
-                data: {
-                    action: 'docmanager_duplicate_document',
-                    document_id: postId,
-                    nonce: docmanager_ajax.nonce
-                },
-                success: function(response) {
-                    if (response.success) {
-                        showNotice('Documento duplicato con successo', 'success');
+                success: function() {
+                    completed++;
+                    updateProgressDialog(Math.round((completed / total) * 100));
+                    
+                    if (completed === total) {
+                        hideProgressDialog();
                         location.reload();
-                    } else {
-                        showNotice('Errore durante la duplicazione', 'error');
                     }
                 },
                 error: function() {
-                    showNotice('Errore di connessione', 'error');
+                    completed++;
+                    updateProgressDialog(Math.round((completed / total) * 100));
+                    
+                    if (completed === total) {
+                        hideProgressDialog();
+                        alert('Alcuni documenti non sono stati eliminati. Ricarica la pagina per vedere lo stato aggiornato.');
+                    }
                 }
             });
         });
+    }
+    
+    function showBulkUserChangeDialog(docIds) {
+        var $dialog = $('<div id="bulk-user-change-dialog" class="docmanager-modal">' +
+            '<div class="docmanager-modal-content">' +
+            '<span class="docmanager-close">&times;</span>' +
+            '<h3>Cambia Utente per ' + docIds.length + ' Documenti</h3>' +
+            '<form id="bulk-user-change-form">' +
+            '<div class="form-group">' +
+            '<label for="bulk-new-user">Nuovo Utente:</label>' +
+            '<select id="bulk-new-user" name="user_id" required></select>' +
+            '</div>' +
+            '<div class="form-group">' +
+            '<button type="submit">Cambia Utente</button>' +
+            '<button type="button" class="docmanager-cancel">Annulla</button>' +
+            '</div>' +
+            '</form>' +
+            '</div>' +
+            '</div>');
         
-        // Riassegna documento
-        $('.docmanager-reassign').on('click', function(e) {
+        $('body').append($dialog);
+        
+        // Populate users dropdown
+        $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'docmanager_get_users',
+                nonce: $('#docmanager_nonce').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    response.data.users.forEach(function(user) {
+                        $('#bulk-new-user').append('<option value="' + user.ID + '">' + user.display_name + '</option>');
+                    });
+                }
+            }
+        });
+        
+        $dialog.show();
+        
+        $('#bulk-user-change-form').on('submit', function(e) {
             e.preventDefault();
+            var newUserId = $('#bulk-new-user').val();
             
-            var $btn = $(this);
-            var postId = $btn.data('post-id');
-            var currentUser = $btn.data('current-user');
-            
-            var newUser = prompt('Inserisci il nuovo utente (ID o email):', currentUser);
-            if (newUser && newUser !== currentUser) {
-                $.ajax({
-                    url: docmanager_ajax.ajax_url,
-                    type: 'POST',
-                    data: {
-                        action: 'docmanager_reassign_document',
-                        document_id: postId,
-                        new_user: newUser,
-                        nonce: docmanager_ajax.nonce
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            showNotice('Documento riassegnato con successo', 'success');
-                            location.reload();
-                        } else {
-                            showNotice('Errore durante la riassegnazione: ' + response.data.message, 'error');
-                        }
-                    },
-                    error: function() {
-                        showNotice('Errore di connessione', 'error');
-                    }
-                });
+            if (newUserId) {
+                bulkChangeUser(docIds, newUserId);
+                $dialog.remove();
             }
+        });
+        
+        $dialog.find('.docmanager-close, .docmanager-cancel').on('click', function() {
+            $dialog.remove();
         });
     }
     
-    /**
-     * Mostra notifica
-     */
-    function showNotice(message, type) {
-        var noticeClass = 'notice-' + (type || 'info');
-        var $notice = $('<div class="notice ' + noticeClass + ' is-dismissible"><p>' + message + '</p></div>');
+    function bulkChangeUser(docIds, newUserId) {
+        var completed = 0;
+        var total = docIds.length;
         
-        $('.wrap h1').after($notice);
+        showProgressDialog('Aggiornamento utenti...', 0);
         
-        setTimeout(function() {
-            $notice.fadeOut(function() {
-                $(this).remove();
+        docIds.forEach(function(docId) {
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'docmanager_update',
+                    nonce: $('#docmanager_nonce').val(),
+                    doc_id: docId,
+                    user_id: newUserId
+                },
+                success: function() {
+                    completed++;
+                    updateProgressDialog(Math.round((completed / total) * 100));
+                    
+                    if (completed === total) {
+                        hideProgressDialog();
+                        location.reload();
+                    }
+                },
+                error: function() {
+                    completed++;
+                    updateProgressDialog(Math.round((completed / total) * 100));
+                    
+                    if (completed === total) {
+                        hideProgressDialog();
+                        alert('Alcuni documenti non sono stati aggiornati. Ricarica la pagina per vedere lo stato aggiornato.');
+                    }
+                }
             });
-        }, 5000);
-    }
-    
-    /**
-     * Drag & Drop per riordinamento
-     */
-    if ($('.docmanager-sortable').length) {
-        $('.docmanager-sortable').sortable({
-            handle: '.docmanager-drag-handle',
-            update: function(event, ui) {
-                var order = $(this).sortable('toArray', {attribute: 'data-id'});
-                
-                $.ajax({
-                    url: docmanager_ajax.ajax_url,
-                    type: 'POST',
-                    data: {
-                        action: 'docmanager_update_order',
-                        order: order,
-                        nonce: docmanager_ajax.nonce
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            showNotice('Ordine aggiornato', 'success');
-                        }
-                    }
-                });
-            }
         });
     }
     
-    /**
-     * Ricerca in tempo reale
-     */
-    var searchTimeout;
-    $('#docmanager-search').on('input', function() {
-        clearTimeout(searchTimeout);
-        var query = $(this).val();
+    // Progress dialog functions
+    function showProgressDialog(title, progress) {
+        var $dialog = $('<div id="progress-dialog" class="docmanager-modal">' +
+            '<div class="docmanager-modal-content">' +
+            '<h3>' + title + '</h3>' +
+            '<div class="docmanager-upload-progress">' +
+            '<div class="docmanager-upload-progress-bar">' +
+            '<div class="docmanager-upload-progress-text">' + progress + '%</div>' +
+            '</div>' +
+            '</div>' +
+            '</div>' +
+            '</div>');
         
-        searchTimeout = setTimeout(function() {
-            if (query.length >= 3 || query.length === 0) {
-                performSearch(query);
-            }
-        }, 300);
-    });
-    
-    /**
-     * Esegue ricerca
-     */
-    function performSearch(query) {
-        $.ajax({
-            url: docmanager_ajax.ajax_url,
-            type: 'POST',
-            data: {
-                action: 'docmanager_search',
-                query: query,
-                nonce: docmanager_ajax.nonce
-            },
-            success: function(response) {
-                if (response.success) {
-                    $('#docmanager-search-results').html(response.data.html);
-                }
-            }
-        });
+        $('body').append($dialog);
+        $dialog.show();
+        $('.docmanager-upload-progress').show();
+        updateProgressDialog(progress);
     }
     
-    /**
-     * Inizializza tooltips
-     */
-    if (typeof $.fn.tooltip === 'function') {
-        $('[data-toggle="tooltip"]').tooltip({
-            container: 'body'
-        });
+    function updateProgressDialog(progress) {
+        $('#progress-dialog .docmanager-upload-progress-bar').css('width', progress + '%');
+        $('#progress-dialog .docmanager-upload-progress-text').text(progress + '%');
     }
     
-    /**
-     * Gestione responsive tabelle
-     */
-    function makeTablesResponsive() {
-        $('.wp-list-table').each(function() {
-            var $table = $(this);
-            var $wrapper = $table.closest('.table-responsive');
+    function hideProgressDialog() {
+        $('#progress-dialog').remove();
+    }
+    
+    // Settings validation
+    function initSettingsValidation() {
+        $('form[action="options.php"]').on('submit', function(e) {
+            var maxSize = parseInt($('input[name="docmanager_max_file_size"]').val());
+            var allowedTypes = $('input[name="docmanager_allowed_types"]').val().trim();
             
-            if ($wrapper.length === 0) {
-                $table.wrap('<div class="table-responsive"></div>');
+            if (isNaN(maxSize) || maxSize <= 0) {
+                alert('La dimensione massima del file deve essere un numero positivo');
+                e.preventDefault();
+                return false;
+            }
+            
+            if (!allowedTypes) {
+                alert('Devi specificare almeno un tipo di file consentito');
+                e.preventDefault();
+                return false;
+            }
+            
+            // Validate file types format
+            var types = allowedTypes.split(',');
+            var validTypes = true;
+            types.forEach(function(type) {
+                if (!/^[a-zA-Z0-9]+$/.test(type.trim())) {
+                    validTypes = false;
+                }
+            });
+            
+            if (!validTypes) {
+                alert('I tipi di file devono essere separati da virgola e contenere solo lettere e numeri');
+                e.preventDefault();
+                return false;
             }
         });
     }
     
-    makeTablesResponsive();
-    
-    /**
-     * Auto-save bozze
-     */
-    var autoSaveInterval;
-    function startAutoSave() {
-        autoSaveInterval = setInterval(function() {
-            var $form = $('#post');
-            if ($form.length && $form.hasClass('docmanager-form')) {
-                var formData = $form.serialize();
+    // Admin search
+    function initAdminSearch() {
+        var $searchInput = $('#admin-search-input');
+        if ($searchInput.length) {
+            var searchTimeout;
+            
+            $searchInput.on('input', function() {
+                clearTimeout(searchTimeout);
+                var searchTerm = $(this).val().toLowerCase();
                 
-                $.ajax({
-                    url: docmanager_ajax.ajax_url,
-                    type: 'POST',
-                    data: formData + '&action=docmanager_auto_save&nonce=' + docmanager_ajax.nonce,
-                    success: function(response) {
-                        if (response.success) {
-                            $('#docmanager-auto-save-notice').text('Bozza salvata alle ' + new Date().toLocaleTimeString()).fadeIn();
-                        }
-                    }
-                });
-            }
-        }, 60000); // Ogni minuto
-    }
-    
-    if ($('#post').hasClass('docmanager-form')) {
-        startAutoSave();
-    }
-    
-    /**
-     * Gestione avanzata file
-     */
-    $('.docmanager-file-actions').on('click', '.docmanager-action', function(e) {
-        e.preventDefault();
-        
-        var $btn = $(this);
-        var action = $btn.data('action');
-        var fileId = $btn.data('file-id');
-        
-        switch(action) {
-            case 'preview':
-                openFilePreview(fileId);
-                break;
-            case 'rename':
-                renameFile(fileId);
-                break;
-            case 'move':
-                moveFile(fileId);
-                break;
-            case 'copy':
-                copyFile(fileId);
-                break;
+                searchTimeout = setTimeout(function() {
+                    $('.wp-list-table tbody tr').each(function() {
+                        var $row = $(this);
+                        var rowText = $row.text().toLowerCase();
+                        $row.toggle(rowText.indexOf(searchTerm) !== -1);
+                    });
+                }, 300);
+            });
         }
-    });
+    }
     
-    /**
-     * Apre anteprima file
-     */
-    function openFilePreview(fileId) {
-        var modal = $('<div class="docmanager-modal"><div class="docmanager-modal-content"><span class="docmanager-modal-close">&times;</span><div class="docmanager-modal-body"></div></div></div>');
-        
-        $.ajax({
-            url: docmanager_ajax.ajax_url,
-            type: 'POST',
-            data: {
-                action: 'docmanager_get_file_preview',
-                file_id: fileId,
-                nonce: docmanager_ajax.nonce
-            },
-            success: function(response) {
-                if (response.success) {
-                    modal.find('.docmanager-modal-body').html(response.data.html);
-                    $('body').append(modal);
-                    modal.fadeIn();
+    // Admin tooltips
+    function initAdminTooltips() {
+        $('[title]').each(function() {
+            var $element = $(this);
+            var title = $element.attr('title');
+            
+            $element.removeAttr('title').attr('data-tooltip', title);
+            
+            $element.hover(
+                function() {
+                    var $tooltip = $('<div class="docmanager-admin-tooltip">' + title + '</div>');
+                    $('body').append($tooltip);
+                    
+                    var offset = $element.offset();
+                    $tooltip.css({
+                        top: offset.top - $tooltip.outerHeight() - 5,
+                        left: offset.left + ($element.outerWidth() / 2) - ($tooltip.outerWidth() / 2),
+                        position: 'absolute',
+                        background: '#333',
+                        color: 'white',
+                        padding: '5px 10px',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        zIndex: 9999
+                    });
+                },
+                function() {
+                    $('.docmanager-admin-tooltip').remove();
                 }
-            }
-        });
-        
-        modal.on('click', '.docmanager-modal-close, .docmanager-modal', function(e) {
-            if (e.target === this) {
-                modal.fadeOut(function() {
-                    modal.remove();
-                });
-            }
+            );
         });
     }
     
-    /**
-     * Cleanup al termine
-     */
-    $(window).on('beforeunload', function() {
-        if (autoSaveInterval) {
-            clearInterval(autoSaveInterval);
-        }
-    });
-});
-
-// Funzioni globali per compatibilità
-window.docmanagerDeleteDocument = function(documentId) {
-    if (confirm(docmanager_ajax.confirm_delete)) {
-        jQuery.ajax({
-            url: docmanager_ajax.ajax_url,
-            type: 'POST',
-            data: {
-                action: 'docmanager_delete_document',
-                document_id: documentId,
-                nonce: docmanager_ajax.nonce
-            },
-            success: function(response) {
-                if (response.success) {
-                    location.reload();
-                } else {
-                    alert('Errore durante l\'eliminazione: ' + response.data);
-                }
-            },
-            error: function() {
-                alert('Errore di connessione');
-            }
-        });
-    }
-};
+})(jQuery);

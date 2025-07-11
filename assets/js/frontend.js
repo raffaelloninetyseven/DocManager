@@ -1,474 +1,295 @@
-// DocManager Frontend JavaScript (versione corretta)
+/**
+ * DocManager Frontend JavaScript
+ */
 
-jQuery(document).ready(function($) {
+(function($) {
+    'use strict';
     
-    initAccordion();
-    initUploadForm();
-    initFilters();
-    initDocumentActions();
-    
-    /**
-     * Inizializza funzionalità accordion
-     */
-    function initAccordion() {
-        $('.docmanager-accordion-header').on('click', function() {
-            var $item = $(this).closest('.docmanager-accordion-item');
-            var $content = $item.find('.docmanager-accordion-content');
-            
-            $('.docmanager-accordion-item').not($item).removeClass('active');
-            $('.docmanager-accordion-content').not($content).slideUp();
-            
-            $item.toggleClass('active');
-            $content.slideToggle();
-        });
-    }
-    
-    /**
-     * Inizializza form upload con validazione migliorata
-     */
-    function initUploadForm() {
-        var $uploadForm = $('.docmanager-upload-form form');
-        var $uploadBtn = $('.docmanager-upload-btn');
-        var originalBtnText = $uploadBtn.text();
+    // Utility functions
+    window.DocManager = {
         
-        $uploadForm.on('submit', function(e) {
-            var isValid = validateForm($(this));
+        // Show loading state
+        showLoading: function(container) {
+            $(container).find('.docmanager-loading').show();
+            $(container).find('.docmanager-table, .docmanager-documents-grid').hide();
+        },
+        
+        // Hide loading state
+        hideLoading: function(container) {
+            $(container).find('.docmanager-loading').hide();
+        },
+        
+        // Show success message
+        showSuccess: function(container, message) {
+            var html = '<div class="docmanager-message success">' + message + '</div>';
+            $(container).find('.docmanager-messages').html(html);
+            this.scrollToMessages(container);
+        },
+        
+        // Show error message
+        showError: function(container, message) {
+            var html = '<div class="docmanager-message error">' + message + '</div>';
+            $(container).find('.docmanager-messages').html(html);
+            this.scrollToMessages(container);
+        },
+        
+        // Scroll to messages
+        scrollToMessages: function(container) {
+            var $messages = $(container).find('.docmanager-messages');
+            if ($messages.length) {
+                $('html, body').animate({
+                    scrollTop: $messages.offset().top - 100
+                }, 500);
+            }
+        },
+        
+        // Format file size
+        formatFileSize: function(bytes) {
+            if (bytes >= 1073741824) {
+                return (bytes / 1073741824).toFixed(2) + ' GB';
+            } else if (bytes >= 1048576) {
+                return (bytes / 1048576).toFixed(2) + ' MB';
+            } else if (bytes >= 1024) {
+                return (bytes / 1024).toFixed(2) + ' KB';
+            } else {
+                return bytes + ' bytes';
+            }
+        },
+        
+        // Validate file before upload
+        validateFile: function(file, allowedTypes, maxSize) {
+            var fileExtension = file.name.split('.').pop().toLowerCase();
             
-            if (!isValid) {
-                e.preventDefault();
-                return false;
+            if (allowedTypes.indexOf(fileExtension) === -1) {
+                return {
+                    valid: false,
+                    error: 'Tipo di file non consentito. Tipi permessi: ' + allowedTypes.join(', ')
+                };
             }
             
-            $uploadBtn.text(docmanager_ajax.uploading).prop('disabled', true);
+            if (file.size > maxSize) {
+                return {
+                    valid: false,
+                    error: 'File troppo grande. Dimensione massima: ' + this.formatFileSize(maxSize)
+                };
+            }
             
-            if (window.FormData && window.XMLHttpRequest) {
-                e.preventDefault();
-                uploadWithProgress(this);
-            }
-        });
+            return { valid: true };
+        },
         
-        $uploadForm.on('reset', function() {
-            $uploadBtn.text(originalBtnText).prop('disabled', false);
-            removeMessages();
-            clearValidationErrors();
-        });
-        
-        $('.docmanager-field input[required], .docmanager-field select[required]').on('blur', function() {
-            validateField($(this));
-        });
-        
-        $('input[type="file"]').on('change', function() {
-            validateFileInput($(this));
-        });
-    }
-    
-    /**
-     * Validazione completa del form
-     */
-    function validateForm($form) {
-        var isValid = true;
-        
-        $form.find('input[required], select[required]').each(function() {
-            if (!validateField($(this))) {
-                isValid = false;
-            }
-        });
-        
-        var $fileInput = $form.find('input[type="file"]');
-        if ($fileInput.length && !validateFileInput($fileInput)) {
-            isValid = false;
-        }
-        
-        return isValid;
-    }
-    
-    /**
-     * Validazione singolo campo
-     */
-    function validateField($field) {
-        var value = $field.val().trim();
-        var isValid = true;
-        
-        $field.removeClass('docmanager-field-error');
-        $field.next('.docmanager-error-message').remove();
-        
-        if ($field.prop('required') && !value) {
-            showFieldError($field, 'Questo campo è obbligatorio');
-            isValid = false;
-        }
-        
-        if ($field.attr('type') === 'email' && value && !isValidEmail(value)) {
-            showFieldError($field, 'Inserisci un indirizzo email valido');
-            isValid = false;
-        }
-        
-        return isValid;
-    }
-    
-    /**
-     * Validazione file input
-     */
-    function validateFileInput($fileInput) {
-        var files = $fileInput[0].files;
-        var isValid = true;
-        
-        $fileInput.removeClass('docmanager-field-error');
-        $fileInput.next('.docmanager-error-message').remove();
-        
-        if (!files || files.length === 0) {
-            if ($fileInput.prop('required')) {
-                showFieldError($fileInput, 'Seleziona un file da caricare');
-                isValid = false;
-            }
-            return isValid;
-        }
-        
-        var file = files[0];
-        var maxSize = 10 * 1024 * 1024; // 10MB default
-        
-        if (file.size > maxSize) {
-            showFieldError($fileInput, 'Il file è troppo grande. Dimensione massima: 10MB');
-            isValid = false;
-        }
-        
-        var allowedTypes = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'gif'];
-        var fileExtension = file.name.split('.').pop().toLowerCase();
-        
-        if (allowedTypes.indexOf(fileExtension) === -1) {
-            showFieldError($fileInput, 'Tipo di file non supportato. Tipi consentiti: ' + allowedTypes.join(', '));
-            isValid = false;
-        }
-        
-        return isValid;
-    }
-    
-    /**
-     * Mostra errore campo
-     */
-    function showFieldError($field, message) {
-        $field.addClass('docmanager-field-error');
-        $field.after('<span class="docmanager-error-message">' + message + '</span>');
-    }
-    
-    /**
-     * Pulisce errori validazione
-     */
-    function clearValidationErrors() {
-        $('.docmanager-field-error').removeClass('docmanager-field-error');
-        $('.docmanager-error-message').remove();
-    }
-    
-    /**
-     * Upload con progress bar migliorato
-     */
-    function uploadWithProgress(form) {
-        var formData = new FormData(form);
-        var xhr = new XMLHttpRequest();
-        
-        var progressHtml = '<div class="docmanager-progress-wrapper">' +
-                          '<div class="docmanager-progress-bar">' +
-                          '<div class="docmanager-progress-fill" style="width: 0%"></div>' +
-                          '</div>' +
-                          '<div class="docmanager-progress-text">0%</div>' +
-                          '</div>';
-        
-        $(form).find('.docmanager-upload-btn').after(progressHtml);
-        
-        xhr.upload.addEventListener('progress', function(e) {
-            if (e.lengthComputable) {
-                var percentComplete = Math.round((e.loaded / e.total) * 100);
-                $('.docmanager-progress-fill').css('width', percentComplete + '%');
-                $('.docmanager-progress-text').text(percentComplete + '%');
-            }
-        });
-        
-        xhr.onload = function() {
-            $('.docmanager-progress-wrapper').remove();
+        // Handle AJAX errors
+        handleAjaxError: function(xhr, status, error) {
+            var message = 'Errore durante la comunicazione con il server';
             
-            if (xhr.status === 200) {
+            if (xhr.responseJSON && xhr.responseJSON.data) {
+                message = xhr.responseJSON.data;
+            } else if (xhr.responseText) {
                 try {
                     var response = JSON.parse(xhr.responseText);
-                    if (response && response.success !== undefined) {
-                        if (response.success) {
-                            showMessage(docmanager_ajax.upload_success, 'success');
-                            $(form)[0].reset();
-                        } else {
-                            showMessage(response.data || docmanager_ajax.upload_error, 'error');
-                        }
-                    } else {
-                        // Risposta HTML normale (non AJAX)
-                        if (xhr.responseText.indexOf('docmanager-success') !== -1) {
-                            showMessage(docmanager_ajax.upload_success, 'success');
-                            $(form)[0].reset();
-                        } else {
-                            location.reload();
-                        }
+                    if (response.data) {
+                        message = response.data;
                     }
                 } catch (e) {
-                    // Probabilmente risposta HTML, ricaricare la pagina
-                    location.reload();
+                    // Use default message
                 }
-            } else {
-                showMessage(docmanager_ajax.upload_error, 'error');
             }
             
-            $('.docmanager-upload-btn').text('Carica Documento').prop('disabled', false);
-        };
+            return message;
+        },
         
-        xhr.onerror = function() {
-            $('.docmanager-progress-wrapper').remove();
-            showMessage('Errore di connessione', 'error');
-            $('.docmanager-upload-btn').text('Carica Documento').prop('disabled', false);
-        };
+        // Debounce function for search
+        debounce: function(func, wait, immediate) {
+            var timeout;
+            return function() {
+                var context = this, args = arguments;
+                var later = function() {
+                    timeout = null;
+                    if (!immediate) func.apply(context, args);
+                };
+                var callNow = immediate && !timeout;
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+                if (callNow) func.apply(context, args);
+            };
+        },
         
-        xhr.open('POST', form.action || window.location.href);
-        xhr.send(formData);
-    }
-    
-    /**
-     * Inizializza filtri
-     */
-    function initFilters() {
-        $('.docmanager-filters select').on('change', function() {
-            var $form = $(this).closest('form');
-            $form.submit();
-        });
-        
-        var searchTimeout;
-        $('.docmanager-search').on('input', function() {
-            clearTimeout(searchTimeout);
-            var $this = $(this);
-            
-            searchTimeout = setTimeout(function() {
-                var searchTerm = $this.val();
-                filterDocuments(searchTerm);
-            }, 300);
-        });
-    }
-    
-    /**
-     * Filtra documenti in tempo reale
-     */
-    function filterDocuments(searchTerm) {
-        var $documents = $('.docmanager-document-item, .docmanager-document-card');
-        
-        if (!searchTerm) {
-            $documents.show();
-            return;
-        }
-        
-        $documents.each(function() {
-            var $doc = $(this);
-            var title = $doc.find('.docmanager-document-title').text().toLowerCase();
-            var meta = $doc.find('.docmanager-document-meta').text().toLowerCase();
-            
-            if (title.indexOf(searchTerm.toLowerCase()) !== -1 || 
-                meta.indexOf(searchTerm.toLowerCase()) !== -1) {
-                $doc.show();
-            } else {
-                $doc.hide();
-            }
-        });
-    }
-    
-    /**
-     * Inizializza azioni documento
-     */
-    function initDocumentActions() {
-        $(document).on('click', '.docmanager-btn-danger', function(e) {
-            if (!confirm(docmanager_ajax.confirm_delete)) {
-                e.preventDefault();
-                return false;
-            }
-        });
-        
-        $(document).on('click', '.docmanager-toggle-status', function(e) {
-            e.preventDefault();
-            
-            var $btn = $(this);
-            var documentId = $btn.data('document-id');
-            var newStatus = $btn.data('new-status');
-            
-            $.ajax({
-                url: docmanager_ajax.ajax_url,
-                type: 'POST',
-                data: {
-                    action: 'docmanager_toggle_status',
-                    document_id: documentId,
-                    new_status: newStatus,
-                    nonce: docmanager_ajax.nonce
-                },
-                success: function(response) {
-                    if (response.success) {
-                        location.reload();
-                    } else {
-                        showMessage('Errore durante l\'aggiornamento dello stato', 'error');
+        // Initialize tooltips
+        initTooltips: function() {
+            $('[data-tooltip]').each(function() {
+                var $this = $(this);
+                var title = $this.data('tooltip');
+                
+                $this.hover(
+                    function() {
+                        var tooltip = $('<div class="docmanager-tooltip">' + title + '</div>');
+                        $('body').append(tooltip);
+                        
+                        var offset = $this.offset();
+                        tooltip.css({
+                            top: offset.top - tooltip.outerHeight() - 5,
+                            left: offset.left + ($this.outerWidth() / 2) - (tooltip.outerWidth() / 2)
+                        });
+                    },
+                    function() {
+                        $('.docmanager-tooltip').remove();
                     }
-                },
-                error: function() {
-                    showMessage('Errore di connessione', 'error');
-                }
+                );
             });
-        });
+        },
         
-        $(document).on('click', '.docmanager-btn-download', function() {
-            var $btn = $(this);
-            var originalText = $btn.text();
+        // Initialize file drag and drop
+        initDragDrop: function(dropZone, fileInput, callback) {
+            var $dropZone = $(dropZone);
+            var $fileInput = $(fileInput);
             
-            $btn.text('Download...');
-            
-            setTimeout(function() {
-                $btn.text(originalText);
-            }, 2000);
-        });
-    }
-    
-    /**
-     * Utility functions
-     */
-    function showMessage(message, type) {
-        removeMessages();
-        
-        var className = 'docmanager-' + (type || 'info');
-        var messageHtml = '<div class="' + className + '">' + message + '</div>';
-        
-        $('.docmanager-upload-form, .docmanager-manage-widget, .docmanager-documents').first().prepend(messageHtml);
-        
-        setTimeout(function() {
-            $('.' + className).fadeOut(function() {
-                $(this).remove();
-            });
-        }, 5000);
-    }
-    
-    function removeMessages() {
-        $('.docmanager-success, .docmanager-error, .docmanager-notice, .docmanager-info').remove();
-    }
-    
-    function isValidEmail(email) {
-        var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    }
-    
-    /**
-     * Gestione responsive per tabelle
-     */
-    function makeTablesResponsive() {
-        $('.docmanager-table-wrapper').each(function() {
-            var $wrapper = $(this);
-            var $table = $wrapper.find('table');
-            
-            if ($table.outerWidth() > $wrapper.width()) {
-                $wrapper.addClass('is-scrollable');
-            }
-        });
-    }
-    
-    /**
-     * Gestione drag & drop per upload
-     */
-    function initDragDrop() {
-        var $uploadArea = $('.docmanager-upload-form');
-        var $fileInput = $uploadArea.find('input[type="file"]');
-        
-        if ($uploadArea.length && $fileInput.length) {
-            $uploadArea.on('dragover dragenter', function(e) {
+            // Prevent default drag behaviors
+            $(document).on('dragenter dragover drop', function(e) {
                 e.preventDefault();
-                e.stopPropagation();
-                $(this).addClass('drag-over');
             });
             
-            $uploadArea.on('dragleave dragend', function(e) {
+            // Handle drag enter
+            $dropZone.on('dragenter dragover', function(e) {
                 e.preventDefault();
-                e.stopPropagation();
-                $(this).removeClass('drag-over');
+                $dropZone.addClass('dragover');
             });
             
-            $uploadArea.on('drop', function(e) {
+            // Handle drag leave
+            $dropZone.on('dragleave', function(e) {
                 e.preventDefault();
-                e.stopPropagation();
-                $(this).removeClass('drag-over');
+                $dropZone.removeClass('dragover');
+            });
+            
+            // Handle file drop
+            $dropZone.on('drop', function(e) {
+                e.preventDefault();
+                $dropZone.removeClass('dragover');
                 
                 var files = e.originalEvent.dataTransfer.files;
                 if (files.length > 0) {
                     $fileInput[0].files = files;
-                    $fileInput.trigger('change');
+                    if (callback && typeof callback === 'function') {
+                        callback(files[0]);
+                    }
                 }
             });
-        }
-    }
-    
-    makeTablesResponsive();
-    initDragDrop();
-    
-    $(window).on('resize', function() {
-        makeTablesResponsive();
-    });
-    
-    if (typeof(Storage) !== "undefined") {
-        $('.docmanager-accordion-header').on('click', function() {
-            var accordionId = $(this).closest('.docmanager-accordion-item').index();
-            var isActive = $(this).closest('.docmanager-accordion-item').hasClass('active');
             
-            if (isActive) {
-                localStorage.setItem('docmanager_accordion_' + accordionId, 'open');
-            } else {
-                localStorage.removeItem('docmanager_accordion_' + accordionId);
-            }
+            // Handle click to open file dialog
+            $dropZone.on('click', function() {
+                $fileInput.click();
+            });
+        },
+        
+        // Initialize modal
+        initModal: function(modalSelector) {
+            var $modal = $(modalSelector);
+            
+            // Close modal on background click
+            $modal.on('click', function(e) {
+                if (e.target === this) {
+                    $(this).hide();
+                }
+            });
+            
+            // Close modal on close button click
+            $modal.find('.docmanager-close').on('click', function() {
+                $modal.hide();
+            });
+            
+            // Close modal on escape key
+            $(document).on('keydown', function(e) {
+                if (e.keyCode === 27 && $modal.is(':visible')) {
+                    $modal.hide();
+                }
+            });
+        },
+        
+        // Initialize confirm dialogs
+        initConfirmDialogs: function() {
+            $(document).on('click', '[data-confirm]', function(e) {
+                var message = $(this).data('confirm');
+                if (!confirm(message)) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+        },
+        
+        // Initialize search functionality
+        initSearch: function(searchInput, searchButton, resetButton, callback) {
+            var debouncedSearch = this.debounce(callback, 300);
+            
+            // Search on button click
+            $(searchButton).on('click', function() {
+                var searchTerm = $(searchInput).val().trim();
+                if (searchTerm.length >= 2) {
+                    callback(searchTerm);
+                } else {
+                    alert('Inserisci almeno 2 caratteri per la ricerca');
+                }
+            });
+            
+            // Search on enter key
+            $(searchInput).on('keypress', function(e) {
+                if (e.which === 13) {
+                    $(searchButton).click();
+                }
+            });
+            
+            // Auto-search while typing (debounced)
+            $(searchInput).on('input', function() {
+                var searchTerm = $(this).val().trim();
+                if (searchTerm.length >= 3) {
+                    debouncedSearch(searchTerm);
+                } else if (searchTerm.length === 0) {
+                    callback(''); // Reset search
+                }
+            });
+            
+            // Reset search
+            $(resetButton).on('click', function() {
+                $(searchInput).val('');
+                callback('');
+            });
+        }
+    };
+    
+    // Initialize when document is ready
+    $(document).ready(function() {
+        // Initialize tooltips
+        DocManager.initTooltips();
+        
+        // Initialize confirm dialogs
+        DocManager.initConfirmDialogs();
+        
+        // Initialize modals
+        if ($('.docmanager-modal').length) {
+            $('.docmanager-modal').each(function() {
+                DocManager.initModal(this);
+            });
+        }
+        
+        // Auto-clear messages after 5 seconds
+        setTimeout(function() {
+            $('.docmanager-message').fadeOut();
+        }, 5000);
+        
+        // Handle responsive tables
+        $('.docmanager-table').each(function() {
+            var $table = $(this);
+            var $wrapper = $('<div class="table-responsive"></div>');
+            $table.wrap($wrapper);
         });
         
-        $('.docmanager-accordion-item').each(function(index) {
-            if (localStorage.getItem('docmanager_accordion_' + index) === 'open') {
-                $(this).addClass('active');
-                $(this).find('.docmanager-accordion-content').show();
+        // Initialize smooth scrolling for anchor links
+        $('a[href^="#"]').on('click', function(e) {
+            var target = $(this.getAttribute('href'));
+            if (target.length) {
+                e.preventDefault();
+                $('html, body').stop().animate({
+                    scrollTop: target.offset().top - 100
+                }, 500);
             }
         });
-    }
-});
-
-window.docmanagerDeleteDocument = function(documentId) {
-    if (confirm(docmanager_ajax.confirm_delete)) {
-        jQuery.ajax({
-            url: docmanager_ajax.ajax_url,
-            type: 'POST',
-            data: {
-                action: 'docmanager_delete_document',
-                document_id: documentId,
-                nonce: docmanager_ajax.nonce
-            },
-            success: function(response) {
-                if (response.success) {
-                    location.reload();
-                } else {
-                    alert('Errore durante l\'eliminazione: ' + response.data);
-                }
-            },
-            error: function() {
-                alert('Errore di connessione');
-            }
-        });
-    }
-};
-
-window.docmanagerToggleStatus = function(documentId, newStatus) {
-    jQuery.ajax({
-        url: docmanager_ajax.ajax_url,
-        type: 'POST',
-        data: {
-            action: 'docmanager_toggle_status',
-            document_id: documentId,
-            new_status: newStatus,
-            nonce: docmanager_ajax.nonce
-        },
-        success: function(response) {
-            if (response.success) {
-                location.reload();
-            } else {
-                alert('Errore durante l\'aggiornamento: ' + response.data);
-            }
-        },
-        error: function() {
-            alert('Errore di connessione');
-        }
     });
-};
+    
+})(jQuery);
