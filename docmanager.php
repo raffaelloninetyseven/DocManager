@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DocManager
  * Description: Plugin per la gestione documentale con area riservata integrato con Elementor
- * Version: 0.2.8
+ * Version: 0.2.9
  * Author: SilverStudioDM
  * Text Domain: docmanager
  * Domain Path: /languages
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('DOCMANAGER_VERSION', '0.2.8');
+define('DOCMANAGER_VERSION', '0.2.9');
 define('DOCMANAGER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('DOCMANAGER_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('DOCMANAGER_UPLOAD_DIR', WP_CONTENT_DIR . '/docmanager-files/');
