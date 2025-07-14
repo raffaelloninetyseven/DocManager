@@ -137,63 +137,66 @@ class DocManager_Ajax {
     }
     
     public function handle_download() {
-        $doc_id = intval($_GET['doc_id']);
-        $nonce = $_GET['nonce'];
-        
-        if (!wp_verify_nonce($nonce, 'docmanager_download_' . $doc_id)) {
-            wp_die('Accesso negato');
-        }
-        
-        if (!is_user_logged_in()) {
-            wp_die('Accesso richiesto');
-        }
-        
-        $user_id = get_current_user_id();
-        
-        if (!$this->db->user_can_access_document($doc_id, $user_id)) {
-            wp_die('Non hai i permessi per accedere a questo documento');
-        }
-        
-        $document = $this->db->get_document_by_id($doc_id);
-        
-        if (!$document) {
-            wp_die('Documento non trovato');
-        }
-        
-        $upload_dir = wp_upload_dir();
-        $file_path = $upload_dir['basedir'] . '/' . $document->file_path;
-        
-        if (!file_exists($file_path)) {
-            wp_die('File non trovato');
-        }
-        
-        $filename = basename($file_path);
-        $file_extension = pathinfo($filename, PATHINFO_EXTENSION);
-        
-        $content_types = array(
-            'pdf' => 'application/pdf',
-            'doc' => 'application/msword',
-            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'xls' => 'application/vnd.ms-excel',
-            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'ppt' => 'application/vnd.ms-powerpoint',
-            'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            'jpg' => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'png' => 'image/png',
-            'zip' => 'application/zip'
-        );
-        
-        $content_type = isset($content_types[$file_extension]) ? $content_types[$file_extension] : 'application/octet-stream';
-        
-        header('Content-Type: ' . $content_type);
-        header('Content-Disposition: attachment; filename="' . $document->title . '.' . $file_extension . '"');
-        header('Content-Length: ' . filesize($file_path));
-        header('Cache-Control: private');
-        
-        readfile($file_path);
-        exit;
-    }
+		$doc_id = intval($_GET['doc_id']);
+		$nonce = $_GET['nonce'];
+		
+		if (!wp_verify_nonce($nonce, 'docmanager_download_' . $doc_id)) {
+			wp_die('Accesso negato');
+		}
+		
+		if (!is_user_logged_in()) {
+			wp_die('Accesso richiesto');
+		}
+		
+		$user_id = get_current_user_id();
+		
+		if (!$this->db->user_can_access_document($doc_id, $user_id)) {
+			wp_die('Non hai i permessi per accedere a questo documento');
+		}
+		
+		$document = $this->db->get_document_by_id($doc_id);
+		
+		if (!$document) {
+			wp_die('Documento non trovato');
+		}
+		
+		// Log del download
+		$this->log_download($doc_id, $user_id);
+		
+		$upload_dir = wp_upload_dir();
+		$file_path = $upload_dir['basedir'] . '/' . $document->file_path;
+		
+		if (!file_exists($file_path)) {
+			wp_die('File non trovato');
+		}
+		
+		$filename = basename($file_path);
+		$file_extension = pathinfo($filename, PATHINFO_EXTENSION);
+		
+		$content_types = array(
+			'pdf' => 'application/pdf',
+			'doc' => 'application/msword',
+			'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+			'xls' => 'application/vnd.ms-excel',
+			'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+			'ppt' => 'application/vnd.ms-powerpoint',
+			'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+			'jpg' => 'image/jpeg',
+			'jpeg' => 'image/jpeg',
+			'png' => 'image/png',
+			'zip' => 'application/zip'
+		);
+		
+		$content_type = isset($content_types[$file_extension]) ? $content_types[$file_extension] : 'application/octet-stream';
+		
+		header('Content-Type: ' . $content_type);
+		header('Content-Disposition: attachment; filename="' . $document->title . '.' . $file_extension . '"');
+		header('Content-Length: ' . filesize($file_path));
+		header('Cache-Control: private');
+		
+		readfile($file_path);
+		exit;
+	}
     
     public function handle_search() {
         check_ajax_referer('docmanager_nonce', 'nonce');
@@ -301,4 +304,25 @@ class DocManager_Ajax {
             return array('success' => false, 'error' => 'Errore nel salvataggio del file');
         }
     }
+	
+	private function log_download($doc_id, $user_id) {
+		global $wpdb;
+		
+		// Controlla se i log sono abilitati
+		if (!get_option('docmanager_enable_logs', 0)) {
+			return;
+		}
+		
+		$wpdb->insert(
+			$wpdb->prefix . 'docmanager_logs',
+			array(
+				'document_id' => $doc_id,
+				'user_id' => $user_id,
+				'action' => 'download',
+				'ip_address' => $_SERVER['REMOTE_ADDR'] ?? '',
+				'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? ''
+			),
+			array('%d', '%d', '%s', '%s', '%s')
+		);
+	}
 }

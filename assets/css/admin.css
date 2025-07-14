@@ -90,7 +90,8 @@
 }
 
 .docmanager-btn.large {
-    padding: 16px 32px;
+    padding: 10px 20px;
+    margin-left: 20px;
     font-size: 16px;
 }
 
@@ -286,6 +287,8 @@
     font-size: 64px;
     margin-bottom: 16px;
     opacity: 0.3;
+    width: 48px;
+    height: 48px;
 }
 
 .empty-state h3 {
@@ -392,6 +395,10 @@
     background: #f9f9f9;
 }
 
+.docmanager-table tbody tr:hover .action-btn {
+    pointer-events: auto;
+}
+
 .docmanager-table tbody tr:last-child td {
     border-bottom: none;
 }
@@ -417,12 +424,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
+    font-size: 12px;
     color: white;
     font-weight: 700;
     text-transform: uppercase;
     flex-shrink: 0;
     background: #000000;
+}
+
+.file-type-icon::before {
+    content: attr(data-type);
 }
 
 .doc-title-info strong {
@@ -441,6 +452,26 @@
 .user-info .user-name {
     font-weight: 500;
     color: #000000;
+}
+
+.downloads-cell {
+    width: 100px;
+    text-align: center;
+}
+
+.download-count {
+    display: inline-block;
+    background: #f9f9f9;
+    color: #0073aa;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 13px;
+    min-width: 30px;
+}
+
+.download-count:empty::before {
+    content: "0";
 }
 
 .actions-cell {
@@ -464,11 +495,53 @@
     transition: all 0.2s ease;
     background: white;
     color: #666666;
+    position: relative; 
+}
+
+.action-btn::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    z-index: 1000;
+    margin-bottom: 5px;
+}
+
+.action-btn::after {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: #333;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    z-index: 1000;
+    margin-bottom: 1px;
+}
+
+.action-btn:hover::before,
+.action-btn:hover::after {
+    opacity: 1;
+    visibility: visible;
 }
 
 .action-btn:hover {
     border-color: #000000;
     color: #000000;
+    background: white;
 }
 
 .action-btn.edit:hover {
@@ -757,34 +830,99 @@
     color: #000000;
 }
 
-/* Coming Soon */
-.analytics-placeholder {
+/* Analytics Styles */
+.analytics-second-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 32px;
     padding: 0 40px;
+    margin-bottom: 40px;
 }
 
-.coming-soon {
-    background: white;
-    border: 1px solid #e1e1e1;
+.top-files-list,
+.active-users-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.top-file-item,
+.active-user-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px;
+    background: #f9f9f9;
     border-radius: 4px;
-    padding: 80px 40px;
-    text-align: center;
+    transition: background 0.2s ease;
 }
 
-.coming-soon .dashicons {
-    font-size: 64px;
-    color: #666666;
-    margin-bottom: 24px;
+.top-file-item:hover,
+.active-user-item:hover {
+    background: #f0f0f0;
 }
 
-.coming-soon h2 {
-    margin: 0 0 16px 0;
+.file-rank,
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #000000;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.file-details,
+.user-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.file-details h4,
+.user-info h4 {
+    margin: 0 0 4px 0;
+    font-size: 14px;
+    font-weight: 600;
     color: #000000;
 }
 
-.coming-soon p {
+.file-details p,
+.user-info p {
     margin: 0;
+    font-size: 12px;
     color: #666666;
-    font-size: 16px;
+}
+
+.file-type-mini {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: white;
+    background: #000000;
+}
+
+.user-activity {
+    text-align: right;
+}
+
+.activity-score {
+    font-size: 18px;
+    font-weight: 700;
+    color: #0073aa;
+}
+
+#chart-period {
+    background: white;
+    border: 1px solid #e1e1e1;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 14px;
 }
 
 /* Roles Checkboxes */
@@ -825,6 +963,7 @@
 .checkmark {
     font-weight: 600;
     transition: color 0.2s ease;
+    padding-left: 10px;
 }
 
 .setting-field.full-width {
@@ -938,6 +1077,63 @@ input:checked + .toggle-label .toggle-slider {
     font-style: italic;
     padding: 20px;
     text-align: center;
+}
+
+/* Repair Database */
+.database-status {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.status-item {
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 4px;
+    border: 1px solid #e1e1e1;
+}
+
+.status-item h3 {
+    margin: 0 0 10px 0;
+    color: #000000;
+    font-size: 16px;
+}
+
+.status-ok {
+    color: #0073aa;
+    font-weight: 600;
+}
+
+.status-error {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+.all-ok {
+    text-align: center;
+    padding: 40px;
+    background: #f9f9f9;
+    border-radius: 4px;
+    border: 1px solid #e1e1e1;
+}
+
+.all-ok .dashicons {
+    font-size: 48px;
+    color: #0073aa;
+    margin-bottom: 15px;
+    width: 48px;
+    height: 48px;
+}
+
+.all-ok h3 {
+    margin: 0 0 10px 0;
+    color: #000000;
+}
+
+.all-ok p {
+    margin: 0;
+    color: #666666;
 }
 
 /* Responsive Design */
@@ -1066,6 +1262,20 @@ input:checked + .toggle-label .toggle-slider {
         width: 32px;
         height: 32px;
     }
+
+    .downloads-cell {
+        width: 80px;
+    }
+    
+    .download-count {
+        padding: 2px 8px;
+        font-size: 11px;
+    }
+
+    .database-status {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -1083,7 +1293,8 @@ input:checked + .toggle-label .toggle-slider {
     }
     
     .docmanager-btn.large {
-        padding: 14px 24px;
+        padding: 10px 20px;
+        margin-left: 20px;
         font-size: 14px;
     }
     

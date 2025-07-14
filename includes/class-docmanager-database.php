@@ -122,22 +122,45 @@ class DocManager_Database {
         return $result !== false;
     }
     
-    public function get_all_documents($limit = 20, $offset = 0) {
-        global $wpdb;
-        
-        $results = $wpdb->get_results($wpdb->prepare(
-            "SELECT d.*, u.display_name as user_name, a.display_name as uploaded_by_name 
-            FROM {$this->table_name} d 
-            LEFT JOIN {$wpdb->users} u ON d.user_id = u.ID 
-            LEFT JOIN {$wpdb->users} a ON d.uploaded_by = a.ID 
-            WHERE d.status = 'active' 
-            ORDER BY d.upload_date DESC 
-            LIMIT %d OFFSET %d",
-            $limit, $offset
-        ));
-        
-        return $results;
-    }
+    public function get_all_documents_with_downloads($limit = 20, $offset = 0) {
+		global $wpdb;
+		
+		$logs_table = $wpdb->prefix . 'docmanager_logs';
+		$table_exists = $wpdb->get_var("SHOW TABLES LIKE '$logs_table'") == $logs_table;
+		
+		if ($table_exists) {
+			$results = $wpdb->get_results($wpdb->prepare(
+				"SELECT d.*, u.display_name as user_name, a.display_name as uploaded_by_name,
+				 COALESCE(l.download_count, 0) as download_count
+				FROM {$this->table_name} d 
+				LEFT JOIN {$wpdb->users} u ON d.user_id = u.ID 
+				LEFT JOIN {$wpdb->users} a ON d.uploaded_by = a.ID 
+				LEFT JOIN (
+					SELECT document_id, COUNT(*) as download_count 
+					FROM $logs_table 
+					WHERE action = 'download' 
+					GROUP BY document_id
+				) l ON d.id = l.document_id
+				WHERE d.status = 'active' 
+				ORDER BY d.upload_date DESC 
+				LIMIT %d OFFSET %d",
+				$limit, $offset
+			));
+		} else {
+			$results = $wpdb->get_results($wpdb->prepare(
+				"SELECT d.*, u.display_name as user_name, a.display_name as uploaded_by_name, 0 as download_count
+				FROM {$this->table_name} d 
+				LEFT JOIN {$wpdb->users} u ON d.user_id = u.ID 
+				LEFT JOIN {$wpdb->users} a ON d.uploaded_by = a.ID 
+				WHERE d.status = 'active' 
+				ORDER BY d.upload_date DESC 
+				LIMIT %d OFFSET %d",
+				$limit, $offset
+			));
+		}
+		
+		return $results;
+	}
     
     public function get_documents_count() {
         global $wpdb;
@@ -149,30 +172,52 @@ class DocManager_Database {
         return intval($count);
     }
     
-    public function search_documents($search_term, $user_id = null) {
-        global $wpdb;
-        
-        $where_clause = "WHERE d.status = 'active' AND (d.title LIKE %s OR d.notes LIKE %s)";
-        $search_param = '%' . $wpdb->esc_like($search_term) . '%';
-        $params = array($search_param, $search_param);
-        
-        if ($user_id) {
-            $where_clause .= " AND d.user_id = %d";
-            $params[] = $user_id;
-        }
-        
-        $results = $wpdb->get_results($wpdb->prepare(
-            "SELECT d.*, u.display_name as user_name, a.display_name as uploaded_by_name 
-            FROM {$this->table_name} d 
-            LEFT JOIN {$wpdb->users} u ON d.user_id = u.ID 
-            LEFT JOIN {$wpdb->users} a ON d.uploaded_by = a.ID 
-            {$where_clause} 
-            ORDER BY d.upload_date DESC",
-            $params
-        ));
-        
-        return $results;
-    }
+    public function search_documents_with_downloads($search_term, $user_id = null) {
+		global $wpdb;
+		
+		$logs_table = $wpdb->prefix . 'docmanager_logs';
+		$table_exists = $wpdb->get_var("SHOW TABLES LIKE '$logs_table'") == $logs_table;
+		
+		$where_clause = "WHERE d.status = 'active' AND (d.title LIKE %s OR d.notes LIKE %s)";
+		$search_param = '%' . $wpdb->esc_like($search_term) . '%';
+		$params = array($search_param, $search_param);
+		
+		if ($user_id) {
+			$where_clause .= " AND d.user_id = %d";
+			$params[] = $user_id;
+		}
+		
+		if ($table_exists) {
+			$results = $wpdb->get_results($wpdb->prepare(
+				"SELECT d.*, u.display_name as user_name, a.display_name as uploaded_by_name,
+				 COALESCE(l.download_count, 0) as download_count
+				FROM {$this->table_name} d 
+				LEFT JOIN {$wpdb->users} u ON d.user_id = u.ID 
+				LEFT JOIN {$wpdb->users} a ON d.uploaded_by = a.ID 
+				LEFT JOIN (
+					SELECT document_id, COUNT(*) as download_count 
+					FROM $logs_table 
+					WHERE action = 'download' 
+					GROUP BY document_id
+				) l ON d.id = l.document_id
+				{$where_clause} 
+				ORDER BY d.upload_date DESC",
+				$params
+			));
+		} else {
+			$results = $wpdb->get_results($wpdb->prepare(
+				"SELECT d.*, u.display_name as user_name, a.display_name as uploaded_by_name, 0 as download_count
+				FROM {$this->table_name} d 
+				LEFT JOIN {$wpdb->users} u ON d.user_id = u.ID 
+				LEFT JOIN {$wpdb->users} a ON d.uploaded_by = a.ID 
+				{$where_clause} 
+				ORDER BY d.upload_date DESC",
+				$params
+			));
+		}
+		
+		return $results;
+	}
     
     public function user_can_access_document($doc_id, $user_id) {
         global $wpdb;
@@ -218,4 +263,5 @@ class DocManager_Database {
         
         return $results;
     }
+	
 }

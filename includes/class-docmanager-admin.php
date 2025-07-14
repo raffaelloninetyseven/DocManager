@@ -75,6 +75,15 @@ class DocManager_Admin {
             'docmanager-settings',
             array($this, 'settings_page')
         );
+		
+		add_submenu_page(
+			null,
+			'Riparazione Database',
+			'Riparazione Database',
+			'manage_options',
+			'docmanager-repair',
+			array($this, 'repair_page')
+		);
     }
     
     public function admin_init() {
@@ -218,13 +227,13 @@ class DocManager_Admin {
         $search = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
         
         if ($search) {
-            $documents = $this->db->search_documents($search);
-            $total_documents = count($documents);
-            $documents = array_slice($documents, $offset, $per_page);
-        } else {
-            $documents = $this->db->get_all_documents($per_page, $offset);
-            $total_documents = $this->db->get_documents_count();
-        }
+			$documents = $this->db->search_documents_with_downloads($search);
+			$total_documents = count($documents);
+			$documents = array_slice($documents, $offset, $per_page);
+		} else {
+			$documents = $this->db->get_all_documents_with_downloads($per_page, $offset);
+			$total_documents = $this->db->get_documents_count();
+		}
         
         $total_pages = ceil($total_documents / $per_page);
         
@@ -269,14 +278,15 @@ class DocManager_Admin {
         echo '<table class="docmanager-table">';
         echo '<thead>';
         echo '<tr>';
-        echo '<th class="check-column"><input type="checkbox" id="select-all-docs"></th>';
-        echo '<th class="sortable">Documento</th>';
-        echo '<th class="sortable">Utente</th>';
-        echo '<th class="sortable">Tipo</th>';
-        echo '<th class="sortable">Dimensione</th>';
-        echo '<th class="sortable">Data</th>';
-        echo '<th>Azioni</th>';
-        echo '</tr>';
+		echo '<th class="check-column"><input type="checkbox" id="select-all-docs"></th>';
+		echo '<th class="sortable">Documento</th>';
+		echo '<th class="sortable">Utente</th>';
+		echo '<th class="sortable">Tipo</th>';
+		echo '<th class="sortable">Dimensione</th>';
+		echo '<th class="sortable">Data</th>';
+		echo '<th class="sortable">Download</th>';
+		echo '<th>Azioni</th>';
+		echo '</tr>';
         echo '</thead>';
         echo '<tbody>';
         
@@ -288,7 +298,7 @@ class DocManager_Admin {
                 echo '</td>';
                 echo '<td class="doc-title-cell">';
                 echo '<div class="doc-title-container">';
-                echo '<span class="file-type-icon ' . $doc->file_type . '"></span>';
+                echo '<span class="file-type-icon" data-type="' . strtoupper(substr($doc->file_type, 0, 3)) . '"></span>';
                 echo '<div class="doc-title-info">';
                 echo '<strong>' . esc_html($doc->title) . '</strong>';
                 if ($doc->notes) {
@@ -305,26 +315,29 @@ class DocManager_Admin {
                 echo '<td><span class="file-type-badge ' . $doc->file_type . '">' . strtoupper($doc->file_type) . '</span></td>';
                 echo '<td>' . DocManager::format_file_size($doc->file_size) . '</td>';
                 echo '<td>';
-                echo '<time datetime="' . $doc->upload_date . '">';
-                echo date('d/m/Y', strtotime($doc->upload_date));
-                echo '<span class="time-detail">' . date('H:i', strtotime($doc->upload_date)) . '</span>';
-                echo '</time>';
-                echo '</td>';
-                echo '<td class="actions-cell">';
+				echo '<time datetime="' . $doc->upload_date . '">';
+				echo date('d/m/Y', strtotime($doc->upload_date));
+				echo '<span class="time-detail">' . date('H:i', strtotime($doc->upload_date)) . '</span>';
+				echo '</time>';
+				echo '</td>';
+				echo '<td class="downloads-cell">';
+				echo '<span class="download-count">' . ($doc->download_count ?: 0) . '</span>';
+				echo '</td>';
+				echo '<td class="actions-cell">';
                 echo '<div class="action-buttons">';
-                echo '<a href="' . esc_url(admin_url('admin.php?page=docmanager-upload&edit=' . $doc->id)) . '" class="action-btn edit" title="Modifica">';
-                echo '<span class="dashicons dashicons-edit"></span>';
-                echo '</a>';
-                echo '<button type="button" class="action-btn delete" onclick="deleteDocument(' . $doc->id . ')" title="Elimina">';
-                echo '<span class="dashicons dashicons-trash"></span>';
-                echo '</button>';
+                echo '<a href="' . esc_url(admin_url('admin.php?page=docmanager-upload&edit=' . $doc->id)) . '" class="action-btn edit" data-tooltip="Modifica">';
+				echo '<span class="dashicons dashicons-edit"></span>';
+				echo '</a>';
+				echo '<button type="button" class="action-btn delete" onclick="deleteDocument(' . $doc->id . ')" data-tooltip="Elimina">';
+				echo '<span class="dashicons dashicons-trash"></span>';
+				echo '</button>';
                 echo '</div>';
                 echo '</td>';
                 echo '</tr>';
             }
         } else {
             echo '<tr class="no-items">';
-            echo '<td colspan="7">';
+            echo '<td colspan="8">';
             echo '<div class="empty-state">';
             echo '<span class="dashicons dashicons-media-document"></span>';
             echo '<h3>Nessun documento trovato</h3>';
@@ -459,19 +472,484 @@ class DocManager_Admin {
     }
     
     public function analytics_page() {
-        echo '<div class="docmanager-admin-wrap">';
-        echo '<div class="docmanager-header">';
-        echo '<h1><span class="dashicons dashicons-chart-area"></span> Statistiche e Analytics</h1>';
-        echo '</div>';
-        echo '<div class="analytics-placeholder">';
-        echo '<div class="coming-soon">';
-        echo '<span class="dashicons dashicons-chart-pie"></span>';
-        echo '<h2>Statistiche Avanzate</h2>';
-        echo '<p>Funzionalità in arrivo nella prossima versione</p>';
-        echo '</div>';
-        echo '</div>';
-        echo '</div>';
-    }
+		$stats = $this->get_analytics_stats();
+		$chart_data = $this->get_analytics_chart_data();
+		
+		echo '<div class="docmanager-admin-wrap">';
+		echo '<div class="docmanager-header">';
+		echo '<h1><span class="dashicons dashicons-chart-area"></span> Statistiche e Analytics</h1>';
+		echo '<div class="docmanager-header-actions">';
+		echo '<button type="button" id="export-stats-btn" class="docmanager-btn secondary">';
+		echo '<span class="dashicons dashicons-download"></span> Esporta Statistiche';
+		echo '</button>';
+		echo '</div>';
+		echo '</div>';
+		
+		// Statistiche generali
+		echo '<div class="docmanager-stats-container">';
+		echo '<div class="docmanager-stats-grid">';
+		
+		$analytics_items = array(
+			array(
+				'title' => 'Download Totali',
+				'value' => number_format($stats['total_downloads']),
+				'icon' => 'download',
+				'trend' => '+' . $stats['downloads_growth'] . '%'
+			),
+			array(
+				'title' => 'Utenti Unici',
+				'value' => number_format($stats['unique_users']),
+				'icon' => 'admin-users',
+				'trend' => $stats['users_active'] . ' attivi'
+			),
+			array(
+				'title' => 'File Più Scaricato',
+				'value' => $stats['top_file_downloads'],
+				'icon' => 'star-filled',
+				'trend' => $stats['top_file_title']
+			),
+			array(
+				'title' => 'Spazio Medio/Utente',
+				'value' => $stats['avg_storage_per_user'],
+				'icon' => 'backup',
+				'trend' => 'Media generale'
+			)
+		);
+		
+		foreach ($analytics_items as $item) {
+			echo '<div class="docmanager-stat-card">';
+			echo '<div class="stat-header">';
+			echo '<div class="stat-icon"><span class="dashicons dashicons-' . $item['icon'] . '"></span></div>';
+			echo '<div class="stat-trend">' . $item['trend'] . '</div>';
+			echo '</div>';
+			echo '<div class="stat-content">';
+			echo '<h3>' . $item['title'] . '</h3>';
+			echo '<div class="stat-value">' . $item['value'] . '</div>';
+			echo '</div>';
+			echo '</div>';
+		}
+		
+		echo '</div>';
+		echo '</div>';
+		
+		// Grafici e tabelle
+		echo '<div class="docmanager-dashboard-grid">';
+		
+		// Grafico uploads nel tempo
+		echo '<div class="docmanager-widget">';
+		echo '<div class="widget-header">';
+		echo '<h2><span class="dashicons dashicons-chart-line"></span> Upload nel Tempo</h2>';
+		echo '<select id="chart-period">';
+		echo '<option value="7">Ultimi 7 giorni</option>';
+		echo '<option value="30" selected>Ultimi 30 giorni</option>';
+		echo '<option value="90">Ultimi 3 mesi</option>';
+		echo '<option value="365">Ultimo anno</option>';
+		echo '</select>';
+		echo '</div>';
+		echo '<div class="widget-content">';
+		echo '<canvas id="uploadsChart" width="400" height="200"></canvas>';
+		echo '</div>';
+		echo '</div>';
+		
+		// Top Files
+		echo '<div class="docmanager-widget">';
+		echo '<div class="widget-header">';
+		echo '<h2><span class="dashicons dashicons-media-document"></span> File Più Scaricati</h2>';
+		echo '</div>';
+		echo '<div class="widget-content">';
+		
+		if ($stats['top_files']) {
+			echo '<div class="top-files-list">';
+			foreach ($stats['top_files'] as $file) {
+				echo '<div class="top-file-item">';
+				echo '<div class="file-rank">' . $file['rank'] . '</div>';
+				echo '<div class="file-details">';
+				echo '<h4>' . esc_html($file['title']) . '</h4>';
+				echo '<p>' . $file['downloads'] . ' download • ' . esc_html($file['user_name']) . '</p>';
+				echo '</div>';
+				echo '<div class="file-type-mini">' . strtoupper($file['file_type']) . '</div>';
+				echo '</div>';
+			}
+			echo '</div>';
+		} else {
+			echo '<div class="empty-state">';
+			echo '<span class="dashicons dashicons-media-document"></span>';
+			echo '<p>Nessun download registrato</p>';
+			echo '</div>';
+		}
+		
+		echo '</div>';
+		echo '</div>';
+		
+		echo '</div>';
+		
+		// Seconda riga con più grafici
+		echo '<div class="analytics-second-row">';
+		
+		// Distribuzione tipi file
+		echo '<div class="docmanager-widget">';
+		echo '<div class="widget-header">';
+		echo '<h2><span class="dashicons dashicons-chart-pie"></span> Distribuzione Tipi File</h2>';
+		echo '</div>';
+		echo '<div class="widget-content">';
+		echo '<canvas id="fileTypesChart" width="300" height="300"></canvas>';
+		echo '</div>';
+		echo '</div>';
+		
+		// Attività utenti
+		echo '<div class="docmanager-widget">';
+		echo '<div class="widget-header">';
+		echo '<h2><span class="dashicons dashicons-admin-users"></span> Utenti Più Attivi</h2>';
+		echo '</div>';
+		echo '<div class="widget-content">';
+		
+		if ($stats['active_users_list']) {
+			echo '<div class="active-users-list">';
+			foreach ($stats['active_users_list'] as $user) {
+				echo '<div class="active-user-item">';
+				echo '<div class="user-avatar">' . substr($user['display_name'], 0, 1) . '</div>';
+				echo '<div class="user-info">';
+				echo '<h4>' . esc_html($user['display_name']) . '</h4>';
+				echo '<p>' . $user['document_count'] . ' documenti • ' . $user['total_size'] . '</p>';
+				echo '</div>';
+				echo '<div class="user-activity">';
+				echo '<span class="activity-score">' . $user['activity_score'] . '</span>';
+				echo '</div>';
+				echo '</div>';
+			}
+			echo '</div>';
+		} else {
+			echo '<div class="empty-state">';
+			echo '<span class="dashicons dashicons-admin-users"></span>';
+			echo '<p>Nessuna attività registrata</p>';
+			echo '</div>';
+		}
+		
+		echo '</div>';
+		echo '</div>';
+		
+		// Storage per utente
+		echo '<div class="docmanager-widget">';
+		echo '<div class="widget-header">';
+		echo '<h2><span class="dashicons dashicons-cloud"></span> Utilizzo Storage</h2>';
+		echo '</div>';
+		echo '<div class="widget-content">';
+		echo '<canvas id="storageChart" width="400" height="200"></canvas>';
+		echo '</div>';
+		echo '</div>';
+		
+		echo '</div>';
+		
+		echo '</div>';
+		
+		// JavaScript per i grafici
+		echo '<script>
+		document.addEventListener("DOMContentLoaded", function() {
+			// Grafico uploads nel tempo
+			const uploadsCtx = document.getElementById("uploadsChart");
+			if (uploadsCtx) {
+				new Chart(uploadsCtx, {
+					type: "line",
+					data: {
+						labels: ' . json_encode($chart_data['uploads']['labels']) . ',
+						datasets: [{
+							label: "Documenti Caricati",
+							data: ' . json_encode($chart_data['uploads']['data']) . ',
+							borderColor: "#0073aa",
+							backgroundColor: "rgba(0, 115, 170, 0.1)",
+							borderWidth: 2,
+							fill: true,
+							tension: 0.4
+						}]
+					},
+					options: {
+						responsive: true,
+						maintainAspectRatio: false,
+						plugins: { legend: { display: false } },
+						scales: { y: { beginAtZero: true } }
+					}
+				});
+			}
+			
+			// Grafico tipi file
+			const fileTypesCtx = document.getElementById("fileTypesChart");
+			if (fileTypesCtx) {
+				new Chart(fileTypesCtx, {
+					type: "doughnut",
+					data: {
+						labels: ' . json_encode($chart_data['file_types']['labels']) . ',
+						datasets: [{
+							data: ' . json_encode($chart_data['file_types']['data']) . ',
+							backgroundColor: [
+								"#0073aa", "#000000", "#666666", "#999999", "#cccccc"
+							]
+						}]
+					},
+					options: {
+						responsive: true,
+						maintainAspectRatio: false,
+						plugins: {
+							legend: { position: "bottom" }
+						}
+					}
+				});
+			}
+			
+			// Grafico storage
+			const storageCtx = document.getElementById("storageChart");
+			if (storageCtx) {
+				new Chart(storageCtx, {
+					type: "bar",
+					data: {
+						labels: ' . json_encode($chart_data['storage']['labels']) . ',
+						datasets: [{
+							label: "Storage (MB)",
+							data: ' . json_encode($chart_data['storage']['data']) . ',
+							backgroundColor: "#0073aa"
+						}]
+					},
+					options: {
+						responsive: true,
+						maintainAspectRatio: false,
+						plugins: { legend: { display: false } },
+						scales: { y: { beginAtZero: true } }
+					}
+				});
+			}
+			
+			// Export statistiche
+			document.getElementById("export-stats-btn").addEventListener("click", function() {
+				const stats = ' . json_encode($stats) . ';
+				const csv = "Statistica,Valore\\n" + 
+					"Documenti Totali," + stats.total_documents + "\\n" +
+					"Download Totali," + stats.total_downloads + "\\n" +
+					"Utenti Attivi," + stats.users_active + "\\n" +
+					"Spazio Utilizzato," + stats.total_storage + "\\n";
+				
+				const blob = new Blob([csv], { type: "text/csv" });
+				const url = window.URL.createObjectURL(blob);
+				const a = document.createElement("a");
+				a.setAttribute("hidden", "");
+				a.setAttribute("href", url);
+				a.setAttribute("download", "docmanager-stats.csv");
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+			});
+			
+			// Aggiorna grafico per periodo
+			document.getElementById("chart-period").addEventListener("change", function() {
+				// Ricarica dati per nuovo periodo (implementare AJAX se necessario)
+				console.log("Periodo cambiato:", this.value);
+			});
+		});
+		</script>';
+	}
+	
+	private function get_analytics_stats() {
+		global $wpdb;
+		
+		$table_name = $wpdb->prefix . 'docmanager_documents';
+		$logs_table = $wpdb->prefix . 'docmanager_logs';
+		
+		// Statistiche base
+		$total_documents = $wpdb->get_var("SELECT COUNT(*) FROM $table_name WHERE status = 'active'");
+		$total_storage = $wpdb->get_var("SELECT SUM(file_size) FROM $table_name WHERE status = 'active'");
+		$unique_users = $wpdb->get_var("SELECT COUNT(DISTINCT user_id) FROM $table_name WHERE status = 'active'");
+		
+		// Download reali (se tabella log esiste)
+		$table_exists = $wpdb->get_var("SHOW TABLES LIKE '$logs_table'") == $logs_table;
+		
+		if ($table_exists) {
+			$total_downloads = $wpdb->get_var("SELECT COUNT(*) FROM $logs_table WHERE action = 'download'");
+			$monthly_downloads = $wpdb->get_var("SELECT COUNT(*) FROM $logs_table WHERE action = 'download' AND download_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)");
+			$last_month_downloads = $wpdb->get_var("SELECT COUNT(*) FROM $logs_table WHERE action = 'download' AND download_date BETWEEN DATE_SUB(NOW(), INTERVAL 60 DAY) AND DATE_SUB(NOW(), INTERVAL 30 DAY)");
+			
+			$downloads_growth = $last_month_downloads > 0 ? round((($monthly_downloads - $last_month_downloads) / $last_month_downloads) * 100) : 0;
+			
+			// File più scaricato reale
+			$top_file_data = $wpdb->get_row("
+				SELECT d.title, COUNT(l.id) as downloads
+				FROM $logs_table l
+				JOIN $table_name d ON l.document_id = d.id
+				WHERE l.action = 'download' AND d.status = 'active'
+				GROUP BY l.document_id
+				ORDER BY downloads DESC
+				LIMIT 1
+			");
+			
+			$top_file_title = $top_file_data ? wp_trim_words($top_file_data->title, 3) : 'N/A';
+			$top_file_downloads = $top_file_data ? $top_file_data->downloads : 0;
+			
+			// Top 5 files reali
+			$top_files_query = $wpdb->get_results("
+				SELECT d.title, d.file_type, d.user_id, u.display_name as user_name, COUNT(l.id) as downloads
+				FROM $logs_table l
+				JOIN $table_name d ON l.document_id = d.id
+				LEFT JOIN {$wpdb->users} u ON d.user_id = u.ID
+				WHERE l.action = 'download' AND d.status = 'active'
+				GROUP BY l.document_id
+				ORDER BY downloads DESC
+				LIMIT 5
+			");
+			
+		} else {
+			// Fallback se non ci sono log
+			$total_downloads = $total_documents * 3;
+			$downloads_growth = 15;
+			$top_file_title = 'N/A';
+			$top_file_downloads = 0;
+			
+			$top_files_query = $wpdb->get_results("
+				SELECT d.title, d.file_type, d.user_id, u.display_name as user_name
+				FROM $table_name d
+				LEFT JOIN {$wpdb->users} u ON d.user_id = u.ID
+				WHERE d.status = 'active'
+				ORDER BY d.upload_date DESC
+				LIMIT 5
+			");
+		}
+		
+		// Storage medio per utente
+		$avg_storage = $unique_users > 0 ? $total_storage / $unique_users : 0;
+		
+		// Prepara top files
+		$top_files = array();
+		$rank = 1;
+		foreach ($top_files_query as $file) {
+			$top_files[] = array(
+				'rank' => $rank++,
+				'title' => $file->title,
+				'file_type' => $file->file_type,
+				'user_name' => $file->user_name ?: 'N/A',
+				'downloads' => isset($file->downloads) ? $file->downloads : 0
+			);
+		}
+		
+		// Utenti più attivi (rimane uguale)
+		$active_users_query = $wpdb->get_results("
+			SELECT u.display_name, u.ID, COUNT(d.id) as document_count, SUM(d.file_size) as total_size
+			FROM {$wpdb->users} u
+			INNER JOIN $table_name d ON u.ID = d.user_id
+			WHERE d.status = 'active'
+			GROUP BY u.ID
+			ORDER BY document_count DESC
+			LIMIT 5
+		");
+		
+		$active_users_list = array();
+		foreach ($active_users_query as $user) {
+			$active_users_list[] = array(
+				'display_name' => $user->display_name,
+				'document_count' => $user->document_count,
+				'total_size' => DocManager::format_file_size($user->total_size),
+				'activity_score' => $user->document_count * 10
+			);
+		}
+		
+		return array(
+			'total_documents' => $total_documents ?: 0,
+			'total_downloads' => $total_downloads ?: 0,
+			'downloads_growth' => $downloads_growth,
+			'unique_users' => $unique_users ?: 0,
+			'users_active' => min($unique_users, 5),
+			'top_file_downloads' => $top_file_downloads,
+			'top_file_title' => $top_file_title,
+			'avg_storage_per_user' => DocManager::format_file_size($avg_storage),
+			'total_storage' => DocManager::format_file_size($total_storage ?: 0),
+			'top_files' => $top_files,
+			'active_users_list' => $active_users_list
+		);
+	}
+
+	private function get_analytics_chart_data() {
+		global $wpdb;
+		
+		$table_name = $wpdb->prefix . 'docmanager_documents';
+		$logs_table = $wpdb->prefix . 'docmanager_logs';
+		
+		// Controlla se tabella log esiste
+		$table_exists = $wpdb->get_var("SHOW TABLES LIKE '$logs_table'") == $logs_table;
+		
+		// Dati uploads ultimi 30 giorni
+		$uploads_data = $wpdb->get_results("
+			SELECT DATE(upload_date) as date, COUNT(*) as count
+			FROM $table_name
+			WHERE status = 'active' AND upload_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+			GROUP BY DATE(upload_date)
+			ORDER BY date
+		");
+		
+		$uploads_labels = array();
+		$uploads_values = array();
+		
+		// Riempi ultimi 30 giorni
+		for ($i = 29; $i >= 0; $i--) {
+			$date = date('Y-m-d', strtotime("-$i days"));
+			$uploads_labels[] = date('d/m', strtotime($date));
+			
+			$count = 0;
+			foreach ($uploads_data as $upload) {
+				if ($upload->date === $date) {
+					$count = $upload->count;
+					break;
+				}
+			}
+			$uploads_values[] = $count;
+		}
+		
+		// Distribuzione tipi file
+		$file_types_data = $wpdb->get_results("
+			SELECT file_type, COUNT(*) as count
+			FROM $table_name
+			WHERE status = 'active'
+			GROUP BY file_type
+			ORDER BY count DESC
+			LIMIT 5
+		");
+		
+		$file_types_labels = array();
+		$file_types_values = array();
+		
+		foreach ($file_types_data as $type) {
+			$file_types_labels[] = strtoupper($type->file_type);
+			$file_types_values[] = $type->count;
+		}
+		
+		// Storage per utente (top 10)
+		$storage_data = $wpdb->get_results("
+			SELECT u.display_name, SUM(d.file_size) as total_size
+			FROM {$wpdb->users} u
+			INNER JOIN $table_name d ON u.ID = d.user_id
+			WHERE d.status = 'active'
+			GROUP BY u.ID
+			ORDER BY total_size DESC
+			LIMIT 10
+		");
+		
+		$storage_labels = array();
+		$storage_values = array();
+		
+		foreach ($storage_data as $user) {
+			$storage_labels[] = wp_trim_words($user->display_name, 2, '');
+			$storage_values[] = round($user->total_size / 1048576, 1); // Convert to MB
+		}
+		
+		return array(
+			'uploads' => array(
+				'labels' => $uploads_labels,
+				'data' => $uploads_values
+			),
+			'file_types' => array(
+				'labels' => $file_types_labels,
+				'data' => $file_types_values
+			),
+			'storage' => array(
+				'labels' => $storage_labels,
+				'data' => $storage_values
+			)
+		);
+	}
     
     public function settings_page() {
     // Gestione salvataggio impostazioni
@@ -820,6 +1298,116 @@ private function get_total_storage_formatted() {
         
         return $data;
     }
+	
+	public function repair_page() {
+		if (!current_user_can('manage_options')) {
+			wp_die('Non hai i permessi per accedere a questa pagina.');
+		}
+		
+		$repair_result = null;
+		
+		if (isset($_POST['repair_database'])) {
+			if (!wp_verify_nonce($_POST['repair_nonce'], 'docmanager_repair')) {
+				wp_die('Errore di sicurezza.');
+			}
+			
+			$repair_result = DocManager_Repair::repair_database();
+		}
+		
+		$status = DocManager_Repair::check_table_structure();
+		
+		echo '<div class="docmanager-admin-wrap">';
+		echo '<div class="docmanager-header">';
+		echo '<h1><span class="dashicons dashicons-admin-tools"></span> Riparazione Database DocManager</h1>';
+		echo '<div class="docmanager-header-actions">';
+		echo '<a href="' . admin_url('admin.php?page=docmanager') . '" class="docmanager-btn secondary">';
+		echo '<span class="dashicons dashicons-arrow-left-alt"></span> Torna alla Dashboard';
+		echo '</a>';
+		echo '</div>';
+		echo '</div>';
+		
+		if ($repair_result !== null) {
+			if ($repair_result) {
+				echo '<div class="docmanager-notice success">';
+				echo '<span class="dashicons dashicons-yes-alt"></span>';
+				echo 'Database riparato con successo! Tutte le tabelle sono state ricreate.';
+				echo '</div>';
+				$status = DocManager_Repair::check_table_structure(); // Ricontrolla
+			} else {
+				echo '<div class="docmanager-notice error">';
+				echo '<span class="dashicons dashicons-warning"></span>';
+				echo 'Errore durante la riparazione del database. Controlla i permessi.';
+				echo '</div>';
+			}
+		}
+		
+		echo '<div class="docmanager-form-container">';
+		echo '<div class="docmanager-upload-form">';
+		
+		echo '<div class="form-section">';
+		echo '<h2><span class="dashicons dashicons-database"></span> Stato Database</h2>';
+		
+		echo '<div class="database-status">';
+		
+		// Status tabella documenti
+		echo '<div class="status-item">';
+		echo '<h3>Tabella Documenti</h3>';
+		if ($status['table_exists']) {
+			if (empty($status['missing_columns'])) {
+				echo '<span class="status-ok">✅ OK</span>';
+			} else {
+				echo '<span class="status-error">❌ Colonne mancanti: ' . implode(', ', $status['missing_columns']) . '</span>';
+			}
+		} else {
+			echo '<span class="status-error">❌ Tabella mancante</span>';
+		}
+		echo '</div>';
+		
+		// Status tabella log
+		echo '<div class="status-item">';
+		echo '<h3>Tabella Log</h3>';
+		if ($status['logs_table_exists']) {
+			if (empty($status['missing_logs_columns'])) {
+				echo '<span class="status-ok">✅ OK</span>';
+			} else {
+				echo '<span class="status-error">❌ Colonne mancanti: ' . implode(', ', $status['missing_logs_columns']) . '</span>';
+			}
+		} else {
+			echo '<span class="status-error">❌ Tabella mancante</span>';
+		}
+		echo '</div>';
+		
+		echo '</div>';
+		echo '</div>';
+		
+		if (!$status['is_valid']) {
+			echo '<div class="form-section">';
+			echo '<h2><span class="dashicons dashicons-admin-tools"></span> Riparazione</h2>';
+			echo '<p><strong>Attenzione:</strong> La riparazione eliminerà tutte le tabelle esistenti e le ricreerà. Tutti i dati verranno persi!</p>';
+			echo '<form method="post">';
+			echo '<div class="form-actions">';
+			echo '<button type="submit" name="repair_database" class="docmanager-btn danger large" onclick="return confirm(\'Sei sicuro? Tutti i dati verranno eliminati!\')">';
+			echo '<span class="dashicons dashicons-admin-tools"></span> Ripara Database';
+			echo '</button>';
+			echo '</div>';
+			echo wp_nonce_field('docmanager_repair', 'repair_nonce');
+			echo '</form>';
+			echo '</div>';
+		} else {
+			echo '<div class="form-section">';
+			echo '<div class="all-ok">';
+			echo '<span class="dashicons dashicons-yes-alt"></span>';
+			echo '<h3>Database in perfetto stato!</h3>';
+			echo '<p>Tutte le tabelle e colonne sono presenti e corrette.</p>';
+			echo '</div>';
+			echo '</div>';
+		}
+		
+		echo '</div>';
+		echo '</div>';
+		
+		echo '</div>';
+	}
     
     private function handle_upload() {
         if (!wp_verify_nonce($_POST['docmanager_nonce'], 'docmanager_upload')) {

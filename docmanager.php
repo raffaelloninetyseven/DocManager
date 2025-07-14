@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DocManager
  * Description: Plugin per la gestione di referti medici con area riservata
- * Version: 0.4.3.9
+ * Version: 0.4.4.6
  * Author: SilverStudioDM
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('DOCMANAGER_VERSION', '0.4.3.9');
+define('DOCMANAGER_VERSION', '0.4.4.6');
 define('DOCMANAGER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('DOCMANAGER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -31,6 +31,7 @@ class DocManager {
         $this->init_elementor_widgets();
 		
 		new DocManager_Admin_Bar();
+		new DocManager_Page_Protection();
     }
     
     private function load_dependencies() {
@@ -40,6 +41,7 @@ class DocManager {
 		require_once DOCMANAGER_PLUGIN_DIR . 'includes/class-docmanager-admin-bar.php';
 		require_once DOCMANAGER_PLUGIN_DIR . 'includes/class-docmanager-ajax.php';
 		require_once DOCMANAGER_PLUGIN_DIR . 'includes/class-docmanager-elementor.php';
+		require_once DOCMANAGER_PLUGIN_DIR . 'includes/class-docmanager-page-protection.php';
 		require_once DOCMANAGER_PLUGIN_DIR . 'includes/widgets/class-widget-upload.php';
 		require_once DOCMANAGER_PLUGIN_DIR . 'includes/widgets/class-widget-manage.php';
 		require_once DOCMANAGER_PLUGIN_DIR . 'includes/widgets/class-widget-view.php';
@@ -112,9 +114,26 @@ class DocManager {
 			KEY uploaded_by (uploaded_by)
 		) $charset_collate;";
 		
+		// Tabella log
+		$logs_table = $wpdb->prefix . 'docmanager_logs';
+		$sql2 = "CREATE TABLE $logs_table (
+			id mediumint(9) NOT NULL AUTO_INCREMENT,
+			document_id mediumint(9) NOT NULL,
+			user_id mediumint(9) NOT NULL,
+			action varchar(50) NOT NULL,
+			ip_address varchar(45),
+			user_agent text,
+			download_date datetime DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			KEY document_id (document_id),
+			KEY user_id (user_id),
+			KEY action (action)
+		) $charset_collate;";
+		
 		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 		dbDelta($sql);
-		
+		dbDelta($sql2);
+	
 		// Forza aggiornamento se mancano colonne
 		$columns = $wpdb->get_col("DESCRIBE {$table_name}");
 		if (!in_array('user_id', $columns)) {
