@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DocManager
  * Description: Plugin per la gestione di referti medici con area riservata
- * Version: 0.4.4.6
+ * Version: 0.4.5
  * Author: SilverStudioDM
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('DOCMANAGER_VERSION', '0.4.4.6');
+define('DOCMANAGER_VERSION', '0.4.5');
 define('DOCMANAGER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('DOCMANAGER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -64,10 +64,16 @@ class DocManager {
     }
     
     private function init_elementor_widgets() {
-        if (did_action('elementor/loaded')) {
-            new DocManager_Elementor();
-        }
-    }
+		add_action('elementor/widgets/widgets_registered', array($this, 'register_elementor_widgets'));
+	}
+	
+	public function register_elementor_widgets() {
+		if (class_exists('\Elementor\Widget_Base')) {
+			\Elementor\Plugin::instance()->widgets_manager->register_widget_type(new DocManager_Widget_Upload());
+			\Elementor\Plugin::instance()->widgets_manager->register_widget_type(new DocManager_Widget_Manage());
+			\Elementor\Plugin::instance()->widgets_manager->register_widget_type(new DocManager_Widget_View());
+		}
+	}
     
     public function enqueue_scripts() {
         wp_enqueue_script('docmanager-frontend', DOCMANAGER_PLUGIN_URL . 'assets/js/frontend.js', array('jquery'), DOCMANAGER_VERSION, true);

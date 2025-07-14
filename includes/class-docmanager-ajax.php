@@ -20,6 +20,7 @@ class DocManager_Ajax {
         add_action('wp_ajax_docmanager_download', array($this, 'handle_download'));
         add_action('wp_ajax_docmanager_search', array($this, 'handle_search'));
         add_action('wp_ajax_docmanager_update', array($this, 'handle_update'));
+		add_action('wp_ajax_docmanager_get_users', array($this, 'handle_get_users'));
         
         add_action('wp_ajax_nopriv_docmanager_get_documents', array($this, 'get_documents'));
         add_action('wp_ajax_nopriv_docmanager_download', array($this, 'handle_download'));
@@ -266,6 +267,22 @@ class DocManager_Ajax {
             wp_send_json_error('Errore nell\'aggiornamento del documento');
         }
     }
+	
+	// Aggiungi dopo la funzione handle_update()
+	public function handle_get_users() {
+		check_ajax_referer('docmanager_nonce', 'nonce');
+		
+		if (!current_user_can('manage_options')) {
+			wp_send_json_error('Permessi insufficienti');
+		}
+		
+		$users = get_users(array(
+			'fields' => array('ID', 'display_name'),
+			'orderby' => 'display_name'
+		));
+		
+		wp_send_json_success(array('users' => $users));
+	}
     
     private function process_file_upload($file) {
         if ($file['error'] !== UPLOAD_ERR_OK) {

@@ -22,8 +22,8 @@ class DocManager_Widget_Manage extends \Elementor\Widget_Base {
     }
     
     public function get_categories() {
-        return ['general'];
-    }
+		return ['docmanager'];
+	}
     
     protected function _register_controls() {
         // Sezione Contenuto
