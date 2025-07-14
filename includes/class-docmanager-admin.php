@@ -83,6 +83,7 @@ class DocManager_Admin {
         register_setting('docmanager_settings', 'docmanager_enable_logs');
         register_setting('docmanager_settings', 'docmanager_auto_cleanup_days');
 		register_setting('docmanager_settings', 'docmanager_hide_admin_bar_roles');
+		register_setting('docmanager_settings', 'docmanager_login_page');
     }
     
     public function admin_head() {
@@ -492,6 +493,10 @@ class DocManager_Admin {
             $hide_admin_bar_roles = isset($_POST['docmanager_hide_admin_bar_roles']) ? 
                 array_map('sanitize_text_field', $_POST['docmanager_hide_admin_bar_roles']) : array();
             update_option('docmanager_hide_admin_bar_roles', $hide_admin_bar_roles);
+			
+			// Salva pagina login
+			$login_page = intval($_POST['docmanager_login_page']);
+			update_option('docmanager_login_page', $login_page);
             
             // Salva abilitazione log
             $enable_logs = isset($_POST['docmanager_enable_logs']) ? 1 : 0;
@@ -600,6 +605,19 @@ class DocManager_Admin {
     echo '</div>';
     echo '<p class="field-description">Le pagine selezionate richiederanno il login per essere visualizzate</p>';
     echo '</div>';
+	
+	// Pagina di Login
+	echo '<div class="setting-field full-width">';
+	echo '<label for="login-page">Pagina di Login</label>';
+	wp_dropdown_pages(array(
+		'name' => 'docmanager_login_page',
+		'id' => 'login-page',
+		'selected' => get_option('docmanager_login_page', 0),
+		'show_option_none' => 'Login WordPress predefinito',
+		'option_none_value' => 0
+	));
+	echo '<p class="field-description">Seleziona la pagina personalizzata per il login (opzionale)</p>';
+	echo '</div>';
     
     echo '</div>';
     
@@ -609,15 +627,15 @@ class DocManager_Admin {
     echo '<div class="settings-grid">';
     
     echo '<div class="setting-field">';
-    echo '<label for="enable-logs">Abilita Log Accessi</label>';
-    echo '<div class="toggle-switch">';
-    echo '<input type="checkbox" id="enable-logs" name="docmanager_enable_logs" value="1" ' . checked($enable_logs, 1, false) . '>';
-    echo '<label for="enable-logs" class="toggle-label">';
-    echo '<span class="toggle-slider"></span>';
-    echo '</label>';
-    echo '</div>';
-    echo '<p class="field-description">Registra tutti gli accessi e download dei documenti</p>';
-    echo '</div>';
+	echo '<label for="enable-logs">Abilita Log Accessi</label>';
+	echo '<div class="toggle-switch">';
+	echo '<input type="checkbox" id="enable-logs" name="docmanager_enable_logs" value="1" ' . checked($enable_logs, 1, false) . '>';
+	echo '<div class="toggle-label">';
+	echo '<div class="toggle-slider"></div>';
+	echo '</div>';
+	echo '</div>';
+	echo '<p class="field-description">Registra tutti gli accessi e download dei documenti</p>';
+	echo '</div>';
     
     echo '<div class="setting-field">';
     echo '<label for="auto-cleanup-days">Auto-Cleanup Documenti (giorni)</label>';

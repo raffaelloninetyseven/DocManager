@@ -10,12 +10,13 @@ if (!defined('ABSPATH')) {
 class DocManager_Admin_Bar {
     
     public function __construct() {
-        add_action('init', array($this, 'init_admin_bar_controls'));
-        add_action('wp_before_admin_bar_render', array($this, 'modify_admin_bar'));
-        add_action('wp_head', array($this, 'hide_admin_bar_css'));
-        add_action('admin_head', array($this, 'hide_admin_bar_css'));
+		add_action('init', array($this, 'init_admin_bar_controls'));
+		add_action('wp_loaded', array($this, 'remove_admin_bar_margin')); // Aggiunto
+		add_action('wp_before_admin_bar_render', array($this, 'modify_admin_bar'));
+		add_action('wp_head', array($this, 'hide_admin_bar_css'));
+		add_action('admin_head', array($this, 'hide_admin_bar_css'));
 		add_action('admin_init', array($this, 'redirect_non_admin_users'));
-    }
+	}
     
     public function init_admin_bar_controls() {
         if ($this->should_hide_admin_bar()) {
@@ -39,15 +40,17 @@ class DocManager_Admin_Bar {
     }
     
     public function hide_admin_bar_css() {
-        if ($this->should_hide_admin_bar()) {
-            echo '<style type="text/css">
-                #wpadminbar { display: none !important; }
-                html.wp-toolbar { padding-top: 0 !important; }
-                body.admin-bar { margin-top: 0 !important; }
-                body.admin-bar .elementor-editor-wrapper { top: 0 !important; }
-            </style>';
-        }
-    }
+		if ($this->should_hide_admin_bar()) {
+			echo '<style type="text/css">
+				#wpadminbar { display: none !important; }
+				html.wp-toolbar { padding-top: 0 !important; }
+				body.admin-bar { margin-top: 0 !important; }
+				body.admin-bar .elementor-editor-wrapper { top: 0 !important; }
+				html { margin-top: 0 !important; }
+				body { padding-top: 0 !important; }
+			</style>';
+		}
+	}
     
     private function should_hide_admin_bar() {
         if (!is_user_logged_in()) {
@@ -91,5 +94,23 @@ class DocManager_Admin_Bar {
 				exit;
 			}
 		}
+	}
+	
+	public function remove_admin_bar_margin() {
+		if ($this->should_hide_admin_bar()) {
+			remove_action('wp_head', '_admin_bar_bump_cb');
+			add_action('wp_head', array($this, 'remove_admin_bar_styles'));
+		}
+	}
+
+	public function remove_admin_bar_styles() {
+		echo '<style type="text/css">
+			html { margin-top: 0 !important; }
+			* html body { margin-top: 0 !important; }
+			@media screen and (max-width: 782px) {
+				html { margin-top: 0 !important; }
+				* html body { margin-top: 0 !important; }
+			}
+		</style>';
 	}
 }
