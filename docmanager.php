@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DocManager
  * Description: Plugin per la gestione di referti medici con area riservata
- * Version: 0.6.0
+ * Version: 0.7.1
  * Author: SilverStudioDM
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('DOCMANAGER_VERSION', '0.6.0');
+define('DOCMANAGER_VERSION', '0.7.1');
 define('DOCMANAGER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('DOCMANAGER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
