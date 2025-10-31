@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DocManager
  * Description: Plugin per la gestione di referti medici con area riservata
- * Version: 0.4.5
+ * Version: 0.5.0
  * Author: SilverStudioDM
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('DOCMANAGER_VERSION', '0.4.5');
+define('DOCMANAGER_VERSION', '0.5.0');
 define('DOCMANAGER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('DOCMANAGER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -20,6 +20,7 @@ class DocManager {
         add_action('init', array($this, 'init'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         add_action('admin_enqueue_scripts', array($this, 'admin_enqueue_scripts'));
+		add_action('wp_ajax_docmanager_search_users', array($this, 'handle_user_search'));
         register_activation_hook(__FILE__, array($this, 'activate'));
         register_deactivation_hook(__FILE__, array($this, 'deactivate'));
     }
@@ -97,6 +98,37 @@ class DocManager {
 			wp_enqueue_script('chart-js', 'https://cdn.jsdelivr.net/npm/chart.js', array(), '3.9.1', true);
         }
     }
+	
+	public function handle_user_search() {
+		check_ajax_referer('docmanager_nonce', 'nonce');
+		
+		if (!current_user_can('manage_options')) {
+			wp_send_json_error('Accesso negato');
+		}
+		
+		$search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
+		
+		$args = array(
+			'search' => '*' . $search . '*',
+			'search_columns' => array('user_login', 'user_email', 'display_name'),
+			'role__not_in' => array('administrator'),
+			'number' => 10
+		);
+		
+		$users = get_users($args);
+		$results = array();
+		
+		foreach ($users as $user) {
+			$results[] = array(
+				'id' => $user->ID,
+				'name' => $user->display_name,
+				'email' => $user->user_email,
+				'login' => $user->user_login
+			);
+		}
+		
+		wp_send_json_success($results);
+	}
     
     public function activate() {
 		global $wpdb;
@@ -171,6 +203,7 @@ class DocManager {
 		add_option('docmanager_version', DOCMANAGER_VERSION);
 		add_option('docmanager_max_file_size', 10485760);
 		add_option('docmanager_allowed_types', 'pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,zip');
+		add_option('docmanager_dashboard_users', array());
 	}
 
 	private function verify_table_structure() {
