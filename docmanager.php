@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DocManager
  * Description: Plugin per la gestione di referti medici con area riservata
- * Version: 0.5.0
+ * Version: 0.6.0
  * Author: SilverStudioDM
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('DOCMANAGER_VERSION', '0.5.0');
+define('DOCMANAGER_VERSION', '0.6.0');
 define('DOCMANAGER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('DOCMANAGER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -92,12 +92,17 @@ class DocManager {
     }
     
     public function admin_enqueue_scripts($hook) {
-        if (strpos($hook, 'docmanager') !== false) {
-            wp_enqueue_script('docmanager-admin', DOCMANAGER_PLUGIN_URL . 'assets/js/admin.js', array('jquery'), DOCMANAGER_VERSION, true);
-            wp_enqueue_style('docmanager-admin', DOCMANAGER_PLUGIN_URL . 'assets/css/admin.css', array(), DOCMANAGER_VERSION);
+		if (strpos($hook, 'docmanager') !== false) {
+			wp_enqueue_script('docmanager-admin', DOCMANAGER_PLUGIN_URL . 'assets/js/admin.js', array('jquery'), DOCMANAGER_VERSION, true);
+			wp_enqueue_style('docmanager-admin', DOCMANAGER_PLUGIN_URL . 'assets/css/admin.css', array(), DOCMANAGER_VERSION);
+			wp_localize_script('docmanager-admin', 'docmanagerAdmin', array(
+				'ajaxurl' => admin_url('admin-ajax.php'),
+				'nonce' => wp_create_nonce('docmanager_nonce')
+			));
+			
 			wp_enqueue_script('chart-js', 'https://cdn.jsdelivr.net/npm/chart.js', array(), '3.9.1', true);
-        }
-    }
+		}
+	}
 	
 	public function handle_user_search() {
 		check_ajax_referer('docmanager_nonce', 'nonce');
