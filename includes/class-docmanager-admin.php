@@ -24,7 +24,7 @@ class DocManager_Admin {
         $main_page = add_menu_page(
             'DocManager',
             'DocManager',
-            'manage_options',
+            $this->get_dashboard_capability(),
             'docmanager',
             array($this, 'dashboard_page'),
             'dashicons-media-document',
@@ -35,7 +35,7 @@ class DocManager_Admin {
             'docmanager',
             'Dashboard',
             'Dashboard',
-            'manage_options',
+            $this->get_dashboard_capability(),
             'docmanager',
             array($this, 'dashboard_page')
         );
@@ -44,7 +44,7 @@ class DocManager_Admin {
             'docmanager',
             'Tutti i Documenti',
             'Tutti i Documenti',
-            'manage_options',
+            $this->get_dashboard_capability(),
             'docmanager-documents',
             array($this, 'documents_page')
         );
@@ -53,7 +53,7 @@ class DocManager_Admin {
             'docmanager',
             'Carica Documento',
             'Carica Documento',
-            'manage_options',
+            $this->get_dashboard_capability(),
             'docmanager-upload',
             array($this, 'upload_page')
         );
@@ -62,7 +62,7 @@ class DocManager_Admin {
             'docmanager',
             'Statistiche',
             'Statistiche',
-            'manage_options',
+            $this->get_dashboard_capability(),
             'docmanager-analytics',
             array($this, 'analytics_page')
         );
@@ -93,7 +93,19 @@ class DocManager_Admin {
         register_setting('docmanager_settings', 'docmanager_auto_cleanup_days');
 		register_setting('docmanager_settings', 'docmanager_hide_admin_bar_roles');
 		register_setting('docmanager_settings', 'docmanager_login_page');
+		register_setting('docmanager_settings', 'docmanager_dashboard_users');
     }
+	
+	private function get_dashboard_capability() {
+		$user = wp_get_current_user();
+		$allowed_users = get_option('docmanager_dashboard_users', array());
+		
+		if (in_array($user->ID, $allowed_users)) {
+			return 'read';
+		}
+		
+		return 'manage_options';
+	}
     
     public function admin_head() {
         $screen = get_current_screen();
@@ -989,6 +1001,10 @@ class DocManager_Admin {
             $protected_pages = isset($_POST['docmanager_protected_pages']) ? 
                 array_map('intval', $_POST['docmanager_protected_pages']) : array();
             update_option('docmanager_protected_pages', $protected_pages);
+			
+			$dashboard_users = isset($_POST['docmanager_dashboard_users']) ? 
+				array_map('intval', $_POST['docmanager_dashboard_users']) : array();
+			update_option('docmanager_dashboard_users', $dashboard_users);
             
             echo '<div class="docmanager-notice success">
                 <span class="dashicons dashicons-yes-alt"></span>
@@ -1098,6 +1114,32 @@ class DocManager_Admin {
 	echo '</div>';
     
     echo '</div>';
+	
+	echo '<div class="setting-field full-width">';
+	echo '<label for="dashboard-user-search">Utenti con Accesso Dashboard</label>';
+	echo '<div class="user-search-container">';
+	echo '<input type="text" id="dashboard-user-search" placeholder="Cerca utente..." autocomplete="off">';
+	echo '<div id="user-search-results" class="user-search-results" style="display:none;"></div>';
+	echo '</div>';
+
+	echo '<div id="selected-users-container" class="selected-users-container">';
+	$dashboard_users_ids = get_option('docmanager_dashboard_users', array());
+	if (!empty($dashboard_users_ids)) {
+		$selected_users = get_users(array('include' => $dashboard_users_ids));
+		foreach ($selected_users as $user) {
+			echo '<div class="selected-user-tag" data-user-id="' . esc_attr($user->ID) . '">';
+			echo '<span class="user-name">' . esc_html($user->display_name) . '</span>';
+			echo '<span class="user-email">(' . esc_html($user->user_email) . ')</span>';
+			echo '<button type="button" class="remove-user" onclick="removeUser(' . esc_attr($user->ID) . ')">';
+			echo '<span class="dashicons dashicons-no-alt"></span>';
+			echo '</button>';
+			echo '<input type="hidden" name="docmanager_dashboard_users[]" value="' . esc_attr($user->ID) . '">';
+			echo '</div>';
+		}
+	}
+	echo '</div>';
+	echo '<p class="field-description">Cerca e seleziona gli utenti</p>';
+	echo '</div>';
     
     // Sezione Sistema
     echo '<div class="settings-section">';
