@@ -550,3 +550,90 @@
     }
     
 })(jQuery);
+
+jQuery(document).ready(function($) {
+    let searchTimeout;
+    
+    $('#dashboard-user-search').on('input', function() {
+        clearTimeout(searchTimeout);
+        const search = $(this).val();
+        
+        if (search.length < 2) {
+            $('#user-search-results').hide();
+            return;
+        }
+        
+        searchTimeout = setTimeout(function() {
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'docmanager_search_users',
+                    nonce: $('input[name="docmanager_nonce"]').val(),
+                    search: search
+                },
+                success: function(response) {
+                    if (response.success) {
+                        displayUserResults(response.data);
+                    }
+                }
+            });
+        }, 300);
+    });
+    
+    function displayUserResults(users) {
+        const resultsDiv = $('#user-search-results');
+        resultsDiv.empty();
+        
+        if (users.length === 0) {
+            resultsDiv.html('<div class="no-results">Nessun utente trovato</div>');
+            resultsDiv.show();
+            return;
+        }
+        
+        users.forEach(function(user) {
+            if ($('.selected-user-tag[data-user-id="' + user.id + '"]').length > 0) {
+                return;
+            }
+            
+            const userItem = $('<div class="user-search-item"></div>');
+            userItem.html('<div class="user-info"><strong>' + user.name + '</strong><span class="user-meta">' + user.email + '</span></div>');
+            
+            userItem.on('click', function() {
+                addUser(user);
+                $('#dashboard-user-search').val('');
+                resultsDiv.hide();
+            });
+            
+            resultsDiv.append(userItem);
+        });
+        
+        resultsDiv.show();
+    }
+    
+    function addUser(user) {
+        const container = $('#selected-users-container');
+        const userTag = $('<div class="selected-user-tag" data-user-id="' + user.id + '"></div>');
+        
+        userTag.html(
+            '<span class="user-name">' + user.name + '</span>' +
+            '<span class="user-email">(' + user.email + ')</span>' +
+            '<button type="button" class="remove-user" onclick="removeUser(' + user.id + ')">' +
+            '<span class="dashicons dashicons-no-alt"></span>' +
+            '</button>' +
+            '<input type="hidden" name="docmanager_dashboard_users[]" value="' + user.id + '">'
+        );
+        
+        container.append(userTag);
+    }
+    
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('.user-search-container').length) {
+            $('#user-search-results').hide();
+        }
+    });
+});
+
+function removeUser(userId) {
+    jQuery('.selected-user-tag[data-user-id="' + userId + '"]').remove();
+}
