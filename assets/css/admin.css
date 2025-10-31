@@ -1440,3 +1440,18 @@ textarea:focus {
     outline: 2px solid #0073aa;
     outline-offset: 2px;
 }
+
+.user-search-container{position:relative;margin-bottom:15px}
+#dashboard-user-search{width:100%;padding:10px 15px;border:1px solid #ddd;border-radius:4px;font-size:14px}
+.user-search-results{position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #ddd;border-top:none;border-radius:0 0 4px 4px;max-height:300px;overflow-y:auto;z-index:1000;box-shadow:0 4px 6px rgba(0,0,0,0.1)}
+.user-search-item{padding:12px 15px;cursor:pointer;border-bottom:1px solid #f0f0f0;transition:background .2s}
+.user-search-item:hover{background:#f8f9fa}
+.user-info strong{display:block;color:#333;margin-bottom:4px}
+.user-meta{font-size:12px;color:#666}
+.no-results{padding:12px 15px;color:#666}
+.selected-users-container{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.selected-user-tag{display:inline-flex;align-items:center;background:#e3f2fd;border:1px solid #2196f3;border-radius:20px;padding:8px 12px;gap:8px}
+.selected-user-tag .user-name{font-weight:600;color:#1976d2}
+.selected-user-tag .user-email{font-size:12px;color:#666}
+.selected-user-tag .remove-user{background:none;border:none;cursor:pointer;padding:0;margin-left:5px;color:#d32f2f}
+.selected-user-tag .remove-user:hover{color:#b71c1c}
