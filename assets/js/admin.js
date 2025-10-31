@@ -565,11 +565,11 @@ jQuery(document).ready(function($) {
         
         searchTimeout = setTimeout(function() {
             $.ajax({
-                url: ajaxurl,
+                url: docmanagerAdmin.ajaxurl,
                 type: 'POST',
                 data: {
                     action: 'docmanager_search_users',
-                    nonce: $('input[name="docmanager_nonce"]').val(),
+                    nonce: docmanagerAdmin.nonce,
                     search: search
                 },
                 success: function(response) {
